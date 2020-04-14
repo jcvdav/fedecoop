@@ -161,7 +161,7 @@ an insert of Mexico, with a red box showing the general location of
 these TURFs.](1_map_files/figure-gfm/unnamed-chunk-10-1.png)
 
 ``` r
-map_final <- ggdraw() +
+map_final2 <- ggdraw() +
   draw_plot(turf_map_with_text) +
   draw_plot(mex_map, x = 0.1, y = -0.05, width = 0.45, height = 0.45)
 
