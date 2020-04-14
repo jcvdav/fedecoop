@@ -21,6 +21,7 @@ knitr::opts_chunk$set(echo = TRUE,
 ```{r}
 suppressPackageStartupMessages({
   library(here)
+  library(startR)
   library(sf)
   library(SpatialPosition)
   library(tidyverse)
@@ -46,7 +47,9 @@ We can now calculate the distance between all combinations of TURFs. This will p
 rownames(turfs) <- turfs$Coop
 
 # Calculate distance matrix (results are in meters)
-matrix <- CreateDistMatrix(knownpts = turfs, unknownpts = turfs)
+matrix <- round(
+  CreateDistMatrix(knownpts = turfs, unknownpts = turfs) / 1e3, # Divide by a thousand to convert to km
+  2)                                                            # Keep only two decimals
 ```
 
 
@@ -66,17 +69,24 @@ distance_as_table <- matrix %>%
 
 Now let's visualize and export this matrix.
 
-```{r}
-ggplot(data = distance_as_table, aes(x = from, y = to, fill = value / 1e3)) +
-  geom_tile() +
+```{r, fig.height = 7, fig.width = 7}
+heatmap <- ggplot(data = distance_as_table,
+       mapping = aes(x = from, y = to, fill = value)) +
+  geom_tile(color = "black", size = 0.5) +
   coord_equal() +
+  ggtheme_plot() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  guides(fill = guide_colorbar(ticks.colour = "black", frame.colour = "black")) + 
+  guides(fill = guide_colorbar(ticks.colour = "black",
+                               frame.colour = "black")) + 
   labs(x = "", y = "") +
-  scale_fill_viridis_c(name = "Distance (km)")
+  scale_fill_viridis_c(name = "Distance (km)") +
+  scale_x_discrete(expand = c(0, 0)) +
+  scale_y_discrete(expand = c(0, 0))
+
+heatmap
 ```
 
-We can now export both, the matrix and table.
+We can now export both, the matrix and table, as well as the figure.
 
 ```{r}
 write.csv(x = matrix,
@@ -85,6 +95,11 @@ write.csv(x = matrix,
 write.csv(x = distance_as_table,
           file = here::here("results", "distance_table.csv"),
           row.names = F)
+
+lazy_ggsave(plot = heatmap,
+            filename = "distance_heatmap",
+            width = 17,
+            height = 17)
 ```
 
 

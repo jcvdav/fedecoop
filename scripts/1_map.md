@@ -125,7 +125,6 @@ turf_map <- ggplot() +
   geom_sf(data = baja, color = "black") +
   geom_sf(data = turfs, fill = "transparent", color = "black") +
   geom_sf(data = turf_centroids, color = "red") +
-  geom_sf_text_repel(data = turf_centroids, aes(label = Coop), nudge_x = 4, nudge_y = 0, min.segment.length = 0, seed = 2) +
   ggtheme_plot() +
   theme(legend.position = "top") +
   labs(x = "", y = "")
@@ -134,6 +133,15 @@ turf_map
 ```
 
 ![](1_map_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
+
+``` r
+turf_map_with_text <- turf_map + 
+    geom_sf_text_repel(data = turf_centroids, aes(label = Coop), nudge_x = 4, nudge_y = 0, min.segment.length = 0, seed = 2)
+
+turf_map_with_text
+```
+
+![](1_map_files/figure-gfm/unnamed-chunk-9-2.png)<!-- -->
 
 Now, lets combine them into a finalized plot that we can export.
 
@@ -150,8 +158,19 @@ cooepratives (FEDECOOP) in Baja California and Baja California Sur,
 Mexico. Each red dot indicates the centroid of each TURF used to
 calculate pairwise distances between TURFs. The lower left corner shows
 an insert of Mexico, with a red box showing the general location of
-these TURFs.](1_map_files/figure-gfm/unnamed-chunk-10-1.png) Export the
-figure
+these TURFs.](1_map_files/figure-gfm/unnamed-chunk-10-1.png)
+
+``` r
+map_final <- ggdraw() +
+  draw_plot(turf_map_with_text) +
+  draw_plot(mex_map, x = 0.1, y = -0.05, width = 0.45, height = 0.45)
+
+map_final
+```
+
+![](1_map_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
+
+Export the figure
 
 ``` r
 lazy_ggsave(plot = map_final,
