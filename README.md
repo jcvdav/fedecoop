@@ -1,27 +1,24 @@
-# FEDECOOP maps and stuff
+#  FEDECOOP maps, distances, and abalone model
 
 
 ## Repository structure 
 
 ```
--- 2_distances.html
--- 2_distances.Rmd
 -- fedecoop.Rproj
 -- raw_data
    |__spatial
--- renv
--- renv.lock
-   |__activate.R
-   |__library
-   |__settings.dcf
-   |__staging
+-- README.md
 -- results
    |__distance_matrix.csv
    |__distance_table.csv
    |__img
 -- scripts
-   |__1_map.html
+   |__1_map_files
+   |__1_map.md
    |__1_map.Rmd
+   |__2_distances_files
+   |__2_distances.md
+   |__2_distances.Rmd
 ```
 
 --------- 
