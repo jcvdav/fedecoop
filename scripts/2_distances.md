@@ -16,8 +16,8 @@ the pairwise distances between all TURFs.
 suppressPackageStartupMessages({
   library(here)
   library(startR)
+  library(units)
   library(sf)
-  library(SpatialPosition)
   library(tidyverse)
 })
 ```
@@ -41,33 +41,70 @@ turfs <- st_read(here("raw_data", "spatial",  "feddecoop_polygons.gpkg")) %>%
 ## Calculate distance between TURF centroids
 
 We can now calculate the distance between all combinations of TURFs.
-This will produce a 9 X 9 matrix, with a diagonal with value so 0.
+This will produce a 9 X 9 matrix with all distances (in km), with a
+diagonal with valuea of 0.
 
 ``` r
 # Assign rownames based on TURF name
 rownames(turfs) <- turfs$Coop
 
 # Calculate distance matrix (results are in meters)
-matrix <- round(
-  CreateDistMatrix(knownpts = turfs, unknownpts = turfs) / 1e3, # Divide by a thousand to convert to km
-  2)                                                            # Keep only two decimals
+matrix <- as.matrix(st_distance(turfs, turfs)) %>% 
+  set_units(km)
+
+colnames(matrix) <- turfs$Coop
+rownames(matrix) <- turfs$Coop
+
+matrix
 ```
+
+    ## Units: [km]
+    ##                           Bahia de Tortugas Buzos y Pescadores
+    ## Bahia de Tortugas                   0.00000           34.36685
+    ## Buzos y Pescadores                 34.36685            0.00000
+    ## California de San Ignacio          97.18328          131.29001
+    ## Emancipacion                       48.20886           82.27352
+    ## La Purisima                        42.89460           57.56858
+    ## Leyes de Reforma                  129.11863          163.34328
+    ## Progreso                          158.76908          193.04624
+    ## Punta Abreojos                    200.81062          235.06103
+    ## Isla Cedros                        72.44570           45.48110
+    ##                           California de San Ignacio Emancipacion La Purisima
+    ## Bahia de Tortugas                          97.18328     48.20886    42.89460
+    ## Buzos y Pescadores                        131.29001     82.27352    57.56858
+    ## California de San Ignacio                   0.00000     49.01866   107.92611
+    ## Emancipacion                               49.01866      0.00000    66.85773
+    ## La Purisima                               107.92611     66.85773     0.00000
+    ## Leyes de Reforma                           32.26091     81.10465   136.17114
+    ## Progreso                                   62.08873    110.86493   163.63589
+    ## Punta Abreojos                            103.90244    152.82802   204.90077
+    ## Isla Cedros                               166.93908    119.08127    68.14903
+    ##                           Leyes de Reforma  Progreso Punta Abreojos Isla Cedros
+    ## Bahia de Tortugas                129.11863 158.76908      200.81062    72.44570
+    ## Buzos y Pescadores               163.34328 193.04624      235.06103    45.48110
+    ## California de San Ignacio         32.26091  62.08873      103.90244   166.93908
+    ## Emancipacion                      81.10465 110.86493      152.82802   119.08127
+    ## La Purisima                      136.17114 163.63589      204.90077    68.14903
+    ## Leyes de Reforma                   0.00000  29.82785       71.72387   197.84202
+    ## Progreso                          29.82785   0.00000       42.07509   226.76603
+    ## Punta Abreojos                    71.72387  42.07509        0.00000   268.70713
+    ## Isla Cedros                      197.84202 226.76603      268.70713     0.00000
 
 ``` r
 knitr::kable(matrix)
 ```
 
-|                           | Bahia de Tortugas | Buzos y Pescadores | California de San Ignacio | Emancipacion | La Purisima | Leyes de Reforma | Progreso | Punta Abreojos | Isla Cedros |
-| ------------------------- | ----------------: | -----------------: | ------------------------: | -----------: | ----------: | ---------------: | -------: | -------------: | ----------: |
-| Bahia de Tortugas         |              0.00 |              34.37 |                     97.16 |        48.20 |       42.89 |           129.07 |   158.70 |         200.70 |       72.45 |
-| Buzos y Pescadores        |             34.37 |               0.00 |                    131.27 |        82.27 |       57.56 |           163.30 |   192.98 |         234.95 |       45.48 |
-| California de San Ignacio |             97.16 |             131.27 |                      0.00 |        49.00 |      107.89 |            32.24 |    62.05 |         103.82 |      166.91 |
-| Emancipacion              |             48.20 |              82.27 |                     49.00 |         0.00 |       66.84 |            81.07 |   110.81 |         152.73 |      119.07 |
-| La Purisima               |             42.89 |              57.56 |                    107.89 |        66.84 |        0.00 |           136.11 |   163.55 |         204.77 |       68.14 |
-| Leyes de Reforma          |            129.07 |             163.30 |                     32.24 |        81.07 |      136.11 |             0.00 |    29.81 |          71.66 |      197.79 |
-| Progreso                  |            158.70 |             192.98 |                     62.05 |       110.81 |      163.55 |            29.81 |     0.00 |          42.03 |      226.69 |
-| Punta Abreojos            |            200.70 |             234.95 |                    103.82 |       152.73 |      204.77 |            71.66 |    42.03 |           0.00 |      268.59 |
-| Isla Cedros               |             72.45 |              45.48 |                    166.91 |       119.07 |       68.14 |           197.79 |   226.69 |         268.59 |        0.00 |
+|                           | Bahia de Tortugas | Buzos y Pescadores | California de San Ignacio |     Emancipacion |      La Purisima | Leyes de Reforma |         Progreso |   Punta Abreojos |      Isla Cedros |
+| ------------------------- | ----------------: | -----------------: | ------------------------: | ---------------: | ---------------: | ---------------: | ---------------: | ---------------: | ---------------: |
+| Bahia de Tortugas         |    0.00000 \[km\] |    34.36685 \[km\] |           97.18328 \[km\] |  48.20886 \[km\] |  42.89460 \[km\] | 129.11863 \[km\] | 158.76908 \[km\] | 200.81062 \[km\] |  72.44570 \[km\] |
+| Buzos y Pescadores        |   34.36685 \[km\] |     0.00000 \[km\] |          131.29001 \[km\] |  82.27352 \[km\] |  57.56858 \[km\] | 163.34328 \[km\] | 193.04624 \[km\] | 235.06103 \[km\] |  45.48110 \[km\] |
+| California de San Ignacio |   97.18328 \[km\] |   131.29001 \[km\] |            0.00000 \[km\] |  49.01866 \[km\] | 107.92611 \[km\] |  32.26091 \[km\] |  62.08873 \[km\] | 103.90244 \[km\] | 166.93908 \[km\] |
+| Emancipacion              |   48.20886 \[km\] |    82.27352 \[km\] |           49.01866 \[km\] |   0.00000 \[km\] |  66.85773 \[km\] |  81.10465 \[km\] | 110.86493 \[km\] | 152.82802 \[km\] | 119.08127 \[km\] |
+| La Purisima               |   42.89460 \[km\] |    57.56858 \[km\] |          107.92611 \[km\] |  66.85773 \[km\] |   0.00000 \[km\] | 136.17114 \[km\] | 163.63589 \[km\] | 204.90077 \[km\] |  68.14903 \[km\] |
+| Leyes de Reforma          |  129.11863 \[km\] |   163.34328 \[km\] |           32.26091 \[km\] |  81.10465 \[km\] | 136.17114 \[km\] |   0.00000 \[km\] |  29.82785 \[km\] |  71.72387 \[km\] | 197.84202 \[km\] |
+| Progreso                  |  158.76908 \[km\] |   193.04624 \[km\] |           62.08873 \[km\] | 110.86493 \[km\] | 163.63589 \[km\] |  29.82785 \[km\] |   0.00000 \[km\] |  42.07509 \[km\] | 226.76603 \[km\] |
+| Punta Abreojos            |  200.81062 \[km\] |   235.06103 \[km\] |          103.90244 \[km\] | 152.82802 \[km\] | 204.90077 \[km\] |  71.72387 \[km\] |  42.07509 \[km\] |   0.00000 \[km\] | 268.70713 \[km\] |
+| Isla Cedros               |   72.44570 \[km\] |    45.48110 \[km\] |          166.93908 \[km\] | 119.08127 \[km\] |  68.14903 \[km\] | 197.84202 \[km\] | 226.76603 \[km\] | 268.70713 \[km\] |   0.00000 \[km\] |
 
 Now, lets convert the matrix into a table just in case this is useful.
 
@@ -76,8 +113,25 @@ distance_as_table <- matrix %>%
   as_tibble() %>% 
   mutate(from = colnames(.)) %>% 
   gather(to, value, -from) %>% 
-  mutate(value = value)
+  mutate(value = as.numeric(value))
+
+distance_as_table
 ```
+
+    ## # A tibble: 81 x 3
+    ##    from                      to                 value
+    ##    <chr>                     <chr>              <dbl>
+    ##  1 Bahia de Tortugas         Bahia de Tortugas    0  
+    ##  2 Buzos y Pescadores        Bahia de Tortugas   34.4
+    ##  3 California de San Ignacio Bahia de Tortugas   97.2
+    ##  4 Emancipacion              Bahia de Tortugas   48.2
+    ##  5 La Purisima               Bahia de Tortugas   42.9
+    ##  6 Leyes de Reforma          Bahia de Tortugas  129. 
+    ##  7 Progreso                  Bahia de Tortugas  159. 
+    ##  8 Punta Abreojos            Bahia de Tortugas  201. 
+    ##  9 Isla Cedros               Bahia de Tortugas   72.4
+    ## 10 Bahia de Tortugas         Buzos y Pescadores  34.4
+    ## # … with 71 more rows
 
 Now let’s visualize and export this matrix.
 

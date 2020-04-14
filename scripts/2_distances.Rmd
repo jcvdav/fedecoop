@@ -22,8 +22,8 @@ knitr::opts_chunk$set(echo = TRUE,
 suppressPackageStartupMessages({
   library(here)
   library(startR)
+  library(units)
   library(sf)
-  library(SpatialPosition)
   library(tidyverse)
 })
 ```
@@ -40,16 +40,20 @@ turfs <- st_read(here("raw_data", "spatial",  "feddecoop_polygons.gpkg")) %>%
 ## Calculate distance between TURF centroids
 
 
-We can now calculate the distance between all combinations of TURFs. This will produce a 9 X 9 matrix, with a diagonal with value so 0.
+We can now calculate the distance between all combinations of TURFs. This will produce a 9 X 9 matrix with all distances (in km), with a diagonal with valuea of 0.
 
 ```{r}
 # Assign rownames based on TURF name
 rownames(turfs) <- turfs$Coop
 
 # Calculate distance matrix (results are in meters)
-matrix <- round(
-  CreateDistMatrix(knownpts = turfs, unknownpts = turfs) / 1e3, # Divide by a thousand to convert to km
-  2)                                                            # Keep only two decimals
+matrix <- as.matrix(st_distance(turfs, turfs)) %>% 
+  set_units(km)
+
+colnames(matrix) <- turfs$Coop
+rownames(matrix) <- turfs$Coop
+
+matrix
 ```
 
 
@@ -64,7 +68,9 @@ distance_as_table <- matrix %>%
   as_tibble() %>% 
   mutate(from = colnames(.)) %>% 
   gather(to, value, -from) %>% 
-  mutate(value = value)
+  mutate(value = as.numeric(value))
+
+distance_as_table
 ```
 
 Now let's visualize and export this matrix.
