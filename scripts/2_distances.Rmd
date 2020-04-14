@@ -1,7 +1,7 @@
 ---
 title: "Distance between TURFs"
 author: "Juan Carlos Villaseñr-Derbez"
-output: html_document
+output: github_document
 ---
 
 # Intro
