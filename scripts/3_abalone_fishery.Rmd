@@ -1,0 +1,114 @@
+---
+title: "Abalone Fishery"
+author: "Juan Carlos Villaseñr-Derbez"
+output: github_document
+---
+
+# Intro
+
+This documents uses landings data from CONAPESCA (2005 - 2015). I will create a monthly time series of landings and values for each cooperative.
+
+## Set up
+
+```{r, include = F}
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE,
+                      message = FALSE)
+```
+
+### Load packages
+
+```{r}
+suppressPackageStartupMessages({
+  library(here)
+  library(startR)
+  library(sf)
+  library(janitor)
+  library(tidyverse)
+})
+```
+
+### Load data
+
+```{r}
+conapesca <- readRDS(here("raw_data", "conapesca.rds")) %>% 
+  clean_names()
+```
+
+## Prepare data
+
+The first step is to filter the data for the 9 cooperatives of interest. So I'll filter the data, and group at the year-month level.
+
+```{r}
+coops_i_want <- c("Scpp bahia tortugas s.c de r.l", "Scpp bahia tortugas s.c de r.l", "Scpp buzos y pescadores de la baja california scl", "Scpp california de san ignacio scl", "Scpp emancipacion sc de rl", "Scpp la purisima scl", "Soc coop de prod pesq rib leyes de reforma sc de rl", "Scpp progreso scl", "Scpp punta abreojos scl", "Scpp punta abreojos sc de rl", "Scpp pesc nacionales de abulon sc de rl")
+
+abalone_fishery <- conapesca %>% 
+  filter(unidad_economica %in% coops_i_want) %>% 
+  filter(str_detect(nombre_cientifico, "Haliotis")) %>%
+  select(unidad_economica, mes, ano, nombre_cientifico, peso_desembarcado, peso_vivo, precio, valor) %>% 
+  mutate(unidad_economica = tolower(unidad_economica),
+         unidad_economica = str_remove_all(unidad_economica, "scpp"),
+         unidad_economica = str_remove_all(unidad_economica, "coop de prod pesq rib"),
+         unidad_economica = str_remove_all(unidad_economica, "de"),
+         unidad_economica = str_remove_all(unidad_economica, "scl"),
+         unidad_economica = str_remove_all(unidad_economica, "sc"),
+         unidad_economica = str_remove_all(unidad_economica, "rl"),
+         unidad_economica = str_remove_all(unidad_economica, "s.c."),
+         unidad_economica = str_remove_all(unidad_economica, "r.l."),
+         unidad_economica = str_remove_all(unidad_economica, "r.l"),
+         unidad_economica = str_trim(unidad_economica)) %>% 
+  group_by(unidad_economica, ano) %>% 
+  summarize(peso_desembarcado = sum(peso_desembarcado, na.rm = T),
+            peso_vivo = sum(peso_vivo, na.rm = T),
+            precio = mean(precio, na.rm = T),
+            valor = sum(valor, na.rm = T))
+```
+
+
+
+```{r}
+abalone_fishery %>% 
+  gather(variable, value, -c(ano, unidad_economica)) %>% 
+  ggplot(mapping = aes(x = ano, y = value, color = unidad_economica)) +
+  geom_line() +
+  facet_wrap(~variable, scales = "free_y")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
