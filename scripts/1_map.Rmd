@@ -1,0 +1,148 @@
+---
+title: "Map of nine TURFs"
+author: "Juan Carlos Villaseñr-Derbez"
+output: html_document
+---
+
+# Intro
+
+The Federation of Cooperatives (FEDECOOP) is a group of 9 fishing cooperatives that. This Rmd file creates a map of these TURFS
+
+# Coding
+
+## Set up
+
+```{r, include = F}
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE,
+                      message = FALSE)
+```
+
+
+### Load libraries
+
+```{r}
+suppressPackageStartupMessages({
+  library(startR)
+  library(here)
+  library(cowplot)
+  library(rnaturalearth)
+  library(sf)
+  library(ggsflabel)
+  library(SpatialPosition)
+  library(tidyverse)
+})
+```
+
+### Load data
+
+Let's load the data that contain the shapefiles for the 9 TURF polygons, and transform it to longlat coordinates.
+
+```{r}
+turfs <- st_read(here("raw_data", "spatial",  "feddecoop_polygons.gpkg")) %>% 
+  st_transform("+proj=longlat +datum=WGS84 +no_defs")
+```
+
+Let's briefly visualize this data. It contains 9 features (TURFs) and 9 fields (columns). The columns are:
+
+```{r}
+turfs %>% 
+  st_drop_geometry() %>% 
+  knitr::kable()
+```
+
+We see that most columns are not very important for us. But the total area might come in handy, so we'll leave that there. Now, let's rapidly visualize them, using area to color them.
+
+```{r}
+plot(turfs[ , 9])
+```
+
+# Map
+
+The first step is to build a publication-quality map. Something that will probably end up as a supplementary figure.
+
+First, we need the coastline for Mexico and Baja. Let's get both from the `rnaturalearth` package.
+
+```{r}
+mexico <- ne_countries(scale = 10, country = "Mexico", returnclass = "sf")
+baja <- ne_states(country = "Mexico", returnclass = "sf") %>% 
+  filter(name %in% c("Baja California", "Baja California Sur")) %>% 
+  st_crop(st_buffer(st_as_sfc(st_bbox(turfs)), 1)) %>% 
+  st_union()
+```
+
+Now let's create a map of Mexico to use as reference map.
+
+```{r}
+# Create a square based on the bounding box of the TURFs
+square <- st_as_sfc(st_bbox(turfs))
+
+# Create a reference map
+mex_map <- ggplot() +
+  geom_sf(data = mexico, color = "black", fill = "black") +
+  geom_sf(data = square, fill = "transparent", size = 1, color = "red") +
+  ggtheme_map() +
+  theme(plot.background = element_blank())
+
+# View the map
+mex_map
+```
+
+Now let's create a map of the actual cooperatives. We might want to include their names and locations too. So lets create a shapefile of their sentroids first.
+
+```{r}
+turf_centroids <- st_centroid(turfs) %>% 
+  mutate(a = LETTERS[1:nrow(.)])
+```
+
+
+```{r, fig.width = 5, fig.height = 5}
+turf_map <- ggplot() +
+  geom_sf(data = baja, color = "black") +
+  geom_sf(data = turfs, fill = "transparent", color = "black") +
+  geom_sf(data = turf_centroids, color = "red") +
+  geom_sf_text_repel(data = turf_centroids, aes(label = Coop), nudge_x = 4, nudge_y = 0, min.segment.length = 0, seed = 2) +
+  ggtheme_plot() +
+  theme(legend.position = "top") +
+  labs(x = "", y = "")
+
+turf_map
+```
+
+Now, lets combine them into a finalized plot that we can export.
+
+```{r, fig.width = 7, fig.height = 7, fig.cap = "TURFs for nine fishing cooperatives belonging to the federation of cooepratives (FEDECOOP) in Baja California and Baja California Sur, Mexico. Each red dot indicates the centroid of each TURF used to calculate pairwise distances between TURFs. The lower left corner shows an insert of Mexico, with a red box showing the general location of these TURFs."}
+map_final <- ggdraw() +
+  draw_plot(turf_map) +
+  draw_plot(mex_map, x = 0.1, y = -0.05, width = 0.45, height = 0.45)
+
+map_final
+```
+Export the figure
+
+```{r}
+lazy_ggsave(plot = map_final,
+            filename = "fedecoop_map",
+            width = 17,
+            height = 17)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

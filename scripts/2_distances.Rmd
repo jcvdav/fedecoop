@@ -1,0 +1,106 @@
+---
+title: "Distance between TURFs"
+author: "Juan Carlos Villaseñr-Derbez"
+output: html_document
+---
+
+# Intro
+
+The previous Rmd  file created a figure to show the location of nine TURFs that are part of FEDECOOP. This Rmd document will now calculate the pairwise distances between all TURFs.
+
+## Set up
+
+```{r, include = F}
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE,
+                      message = FALSE)
+```
+
+### Load packages
+
+```{r}
+suppressPackageStartupMessages({
+  library(here)
+  library(sf)
+  library(SpatialPosition)
+  library(tidyverse)
+})
+```
+
+### Load data
+
+```{r}
+turfs <- st_read(here("raw_data", "spatial",  "feddecoop_polygons.gpkg")) %>% 
+  st_centroid()
+```
+
+# Calculations
+
+## Calculate distance between TURF centroids
+
+
+We can now calculate the distance between all combinations of TURFs. This will produce a 9 X 9 matrix, with a diagonal with value so 0.
+
+```{r}
+# Assign rownames based on TURF name
+rownames(turfs) <- turfs$Coop
+
+# Calculate distance matrix (results are in meters)
+matrix <- CreateDistMatrix(knownpts = turfs, unknownpts = turfs)
+```
+
+
+```{r}
+knitr::kable(matrix)
+```
+
+Now, lets convert the matrix into a table just in case this is useful.
+
+```{r}
+distance_as_table <- matrix %>%
+  as_tibble() %>% 
+  mutate(from = colnames(.)) %>% 
+  gather(to, value, -from) %>% 
+  mutate(value = value)
+```
+
+Now let's visualize and export this matrix.
+
+```{r}
+ggplot(data = distance_as_table, aes(x = from, y = to, fill = value / 1e3)) +
+  geom_tile() +
+  coord_equal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  guides(fill = guide_colorbar(ticks.colour = "black", frame.colour = "black")) + 
+  labs(x = "", y = "") +
+  scale_fill_viridis_c(name = "Distance (km)")
+```
+
+We can now export both, the matrix and table.
+
+```{r}
+write.csv(x = matrix,
+          file = here::here("results", "distance_matrix.csv"))
+
+write.csv(x = distance_as_table,
+          file = here::here("results", "distance_table.csv"),
+          row.names = F)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
