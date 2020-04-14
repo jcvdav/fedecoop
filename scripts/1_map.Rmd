@@ -123,7 +123,7 @@ map_final
 ```
 
 ```{r, fig.width = 7, fig.height = 7}
-map_final <- ggdraw() +
+map_final2 <- ggdraw() +
   draw_plot(turf_map_with_text) +
   draw_plot(mex_map, x = 0.1, y = -0.05, width = 0.45, height = 0.45)
 
