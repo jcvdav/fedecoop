@@ -6,7 +6,7 @@ output: github_document
 
 # Intro
 
-This documents uses landings data from CONAPESCA (2005 - 2015). I will create a monthly time series of landings and values for each cooperative.
+This documents uses landings data from CONAPESCA (2000 - 2014). I will create a monthly time series and values for each cooperative.
 
 ## Set up
 
@@ -33,48 +33,256 @@ suppressPackageStartupMessages({
 ```{r}
 conapesca <- readRDS(here("raw_data", "conapesca.rds")) %>% 
   clean_names()
+
+turfs <- st_read(here("raw_data", "spatial",  "fedecoop_polygons.gpkg"),
+                 stringsAsFactors = F) 
 ```
 
 ## Prepare data
 
-The first step is to filter the data for the 9 cooperatives of interest. So I'll filter the data, and group at the year-month level.
+The first step is to filter the data for the 9 cooperatives of interest. So I'll filter the data, and group at the year-month level. Then I will be able to know the total monthly landings and the value that these fetched in the market.
 
 ```{r}
+# A list of the cooperatives I want
 coops_i_want <- c("Scpp bahia tortugas s.c de r.l", "Scpp bahia tortugas s.c de r.l", "Scpp buzos y pescadores de la baja california scl", "Scpp california de san ignacio scl", "Scpp emancipacion sc de rl", "Scpp la purisima scl", "Soc coop de prod pesq rib leyes de reforma sc de rl", "Scpp progreso scl", "Scpp punta abreojos scl", "Scpp punta abreojos sc de rl", "Scpp pesc nacionales de abulon sc de rl")
 
+# A list of the valid entries for abalone
+abalone_types_i_want <- c(
+  # "Abulon amarillo s.c. fco.",
+  "Abulon amarillo ent. fco.",
+  # "Abulon chino s.c. fco.",
+  "Abulon chino ent. fco.",
+  "Abulon rayado ent. fco.",
+  # "Abulon rojo s.c. fco.",
+  "Abulon rojo ent. fco.",
+  # "Abulon azul s.c. fco.",
+  "Abulon azul ent. fco.",
+  # "Abulon blanco s.c. fco.",
+  "Abulon blanco ent. fco.",
+  # "Abulon negro s.c. fco.",
+  "Abulon negro ent. fco.",
+  # "Abulon s.c. fco."
+  "Abulon ent. fco."
+  )
+
+# A clearn list of cooepratives, so that databases match between them
+coop_dictionary <- tibble(
+  coop = turfs$coop,
+  unidad_economica = c("bahia tortugas",
+                       "buzos y pescadores la baja california",
+                       "california san ignacio",
+                       "emancipacion",
+                       "pesc nacionales abulon",
+                       "la purisima",
+                       "soc leyes reforma",
+                       "progreso",
+                       "punta abreojos"))
+
+# A month dictionary
+month_dictionary <- tibble(
+  month = 1:12,
+  mes = c("Enero",
+          "Febrero",
+          "Marzo",
+          "Abril",
+          "Mayo",
+          "Junio",
+          "Julio",
+          "Agosto",
+          "Septiembre",
+          "Octubre",
+          "Noviembre",
+          "Diciembre"))
+# Now, filter, clean, and group by
 abalone_fishery <- conapesca %>% 
+  filter(ano >= 2005) %>% 
   filter(unidad_economica %in% coops_i_want) %>% 
-  filter(str_detect(nombre_cientifico, "Haliotis")) %>%
-  select(unidad_economica, mes, ano, nombre_cientifico, peso_desembarcado, peso_vivo, precio, valor) %>% 
+  filter(str_detect(nombre_principal, "Abulon")) %>%
+  filter(nombre_comun %in% abalone_types_i_want) %>% 
+  mutate(peso = peso_desembarcado) %>% 
+  # mutate(tipo = ifelse(str_detect(nombre_comun, "s.c."), "sin_concha", "entero")) %>% 
+  select(unidad_economica,
+         mes,
+         year = ano,
+         landed_weight = peso,
+         revenue = valor) %>% 
   mutate(unidad_economica = tolower(unidad_economica),
-         unidad_economica = str_remove_all(unidad_economica, "scpp"),
+         unidad_economica = str_remove_all(unidad_economica, "scpp "),
          unidad_economica = str_remove_all(unidad_economica, "coop de prod pesq rib"),
          unidad_economica = str_remove_all(unidad_economica, "de"),
-         unidad_economica = str_remove_all(unidad_economica, "scl"),
-         unidad_economica = str_remove_all(unidad_economica, "sc"),
-         unidad_economica = str_remove_all(unidad_economica, "rl"),
-         unidad_economica = str_remove_all(unidad_economica, "s.c."),
-         unidad_economica = str_remove_all(unidad_economica, "r.l."),
-         unidad_economica = str_remove_all(unidad_economica, "r.l"),
-         unidad_economica = str_trim(unidad_economica)) %>% 
-  group_by(unidad_economica, ano) %>% 
-  summarize(peso_desembarcado = sum(peso_desembarcado, na.rm = T),
-            peso_vivo = sum(peso_vivo, na.rm = T),
-            precio = mean(precio, na.rm = T),
-            valor = sum(valor, na.rm = T))
+         unidad_economica = str_remove_all(unidad_economica, " scl"),
+         unidad_economica = str_remove_all(unidad_economica, " sc"),
+         unidad_economica = str_remove_all(unidad_economica, " rl"),
+         unidad_economica = str_remove_all(unidad_economica, " s.c."),
+         unidad_economica = str_remove_all(unidad_economica, " r.l."),
+         unidad_economica = str_remove_all(unidad_economica, " r.l"),
+         unidad_economica = str_trim(unidad_economica),
+         unidad_economica = str_squish(unidad_economica)) %>% 
+  left_join(coop_dictionary, by = "unidad_economica") %>% 
+  left_join(month_dictionary, by = "mes") %>% 
+  select(coop, year, month, landed_weight, revenue) %>% 
+  group_by(year, month, coop) %>% 
+  summarize(landed_weight = sum(landed_weight, na.rm = T),
+            revenue = sum(revenue, na.rm = T)) %>% 
+  ungroup() %>% 
+  mutate(price = revenue / landed_weight) %>% 
+  arrange(year, month, coop)
 ```
 
+The resulting table contins the total monthly landings and revenue (as well as price) at the coop-year-month level. A preview of this panel is this:
+
+```{r}
+head(abalone_fishery, 24) %>% 
+  knitr::kable(caption = "Landings (kg), revenue (MXP), and prices (MXP / Kg) for the abalone fishery in 9 cooperatives belonging to FEDECOOP.")
+```
+
+# Tables and Figures
+
+## Total landings and revenues
+
+Let's create a table that shows the total landings for each cooperative on any given year.
+
+```{r}
+abalone_fishery %>% 
+  group_by(year, coop) %>% 
+  summarize(landings = sum(landed_weight, na.rm = T)) %>% 
+  ungroup() %>% 
+  spread(coop, landings) %>% 
+  adorn_totals(where = c("row", "col"), na.rm = T) %>% 
+  knitr::kable(caption = "Total landings (Kg) for each cooperative through time. NAs represent missing data for a given year / cooperative combination.")
+```
+
+Now, let's look at the total revenues in the same way
+
+```{r}
+abalone_fishery %>% 
+  group_by(year, coop) %>% 
+  summarize(revenues = sum(revenue, na.rm = T)) %>% 
+  ungroup() %>% 
+  spread(coop, revenues) %>% 
+  adorn_totals(where = c("row", "col"), na.rm = T) %>% 
+  knitr::kable(caption = "Total revenues (MXP) for each cooperative through time. NAs represent missing data for a given year / cooperative combination.")
+```
 
 
 ```{r}
 abalone_fishery %>% 
-  gather(variable, value, -c(ano, unidad_economica)) %>% 
-  ggplot(mapping = aes(x = ano, y = value, color = unidad_economica)) +
-  geom_line() +
-  facet_wrap(~variable, scales = "free_y")
+  group_by(coop) %>% 
+  summarize(landed_weight = sum(landed_weight, na.rm = T),
+            revenue = sum(revenue, na.rm = T)) %>% 
+  ungroup() %>% 
+  mutate(price = revenue / landed_weight) %>% 
+  knitr::kable(caption = "Annual mean landed weight, revenue, and price of abalone for each cooperative.")
 ```
 
 
+```{r}
+abalone_fishery %>% 
+  group_by(year) %>% 
+  summarize(landed_weight = sum(landed_weight, na.rm = T),
+            revenue = sum(revenue, na.rm = T)) %>% 
+  ungroup() %>% 
+  mutate(price = revenue / landed_weight) %>% 
+  knitr::kable(caption = "Annual mean landed weight, revenue, and price of abalone for each year.")
+```
+
+
+```{r}
+abalone_fishery %>% 
+  gather(variable, value, -c(year, month, coop)) %>% 
+  filter(!variable == "price") %>% 
+  ggplot(mapping = aes(x = year, y = value, color = coop, fill = coop)) +
+  stat_summary(geom = "line", fun = sum) +
+  facet_wrap(~variable, scales = "free_y", ncol = 1) +
+  scale_color_brewer(name = "Cooperative", palette = "Set1") +
+  ggtheme_plot() +
+  ggtitle("Total annual landings and revenue for each cooperative") +
+  labs(x = "Year", y = "value (in Kg or MXP)")
+```
+
+```{r}
+abalone_fishery %>% 
+  select(coop, landed_weight, revenue) %>% 
+  gather(variable, value, -coop) %>% 
+  ggplot(aes(x = coop, y = value)) +
+  stat_summary(geom = "col", fun = sum, na.rm = T, color = "black", fill = "steelblue") +
+  facet_wrap(~variable, scales = "free_x", ncol = 1)+
+  ggtitle("Total landings and revenue for each cooperatives") +
+  labs(x = "Year", y = "value (in Kg or MXP)") +
+  ggtheme_plot() +
+  coord_flip()
+```
+
+
+```{r}
+abalone_fishery %>% 
+  select(year, landed_weight, revenue) %>% 
+  gather(variable, value, -year) %>% 
+  ggplot(aes(x = year, y = value)) +
+  stat_summary(geom = "line", fun = sum, na.rm = T, color = "black") +
+  stat_summary(geom = "point", fun = sum, na.rm = T, color = "black", fill = "steelblue", shape = 21, size = 2) +
+  facet_wrap(~variable, scales = "free_y", ncol = 1)+
+  ggtitle("Total landings, and revenue for each cooperatives") +
+  labs(x = "Year", y = "value (in Kg or MXP)") +
+  ggtheme_plot()
+```
+
+## Mean measures
+
+The tables and figures above show the totals for each year and across all cooperatives. Let's create one where we show the mean annual landings and revenue for each cooperative, and then one where we look at the grand mean.
+
+```{r}
+abalone_fishery %>% 
+  group_by(year, coop) %>% 
+  summarize(landed_weight = sum(landed_weight, na.rm = T),
+            revenue = sum(revenue, na.rm = T)) %>% 
+  ungroup() %>% 
+  select(-year) %>% 
+  group_by(coop) %>% 
+  summarize_all(mean, na.rm = T) %>% 
+  ungroup() %>% 
+  knitr::kable(caption = "Annual mean landed weight and revenue for each cooperative.")
+```
+
+```{r}
+abalone_fishery %>% 
+  select(coop, year, landed_weight, revenue) %>% 
+  group_by(coop, year) %>% 
+  summarize_all(sum, na.rm = T) %>% 
+  ungroup() %>% 
+  gather(variable, value, -c(year, coop)) %>% 
+  ggplot(aes(x = coop, y = value)) +
+  stat_summary(geom = "errorbar", fun.data = mean_sdl, width = 0) +
+  stat_summary(geom = "col", fun = mean, fill = "steelblue", color = "black") +
+  ggtheme_plot() +
+  coord_flip() +
+  facet_wrap(~variable, scales = "free_x")
+```
+
+```{r}
+mean_landings <- abalone_fishery %>% 
+  group_by(year, coop) %>% 
+  summarize(landed_weight = sum(landed_weight, na.rm = T),
+            revenue = sum(revenue, na.rm = T)) %>% 
+  ungroup() %>% 
+  pull(landed_weight) %>% 
+  mean()
+```
+
+
+```{r}
+mean_revenues <- abalone_fishery %>% 
+  group_by(year, coop) %>% 
+  summarize(landed_weight = sum(landed_weight, na.rm = T),
+            revenue = sum(revenue, na.rm = T)) %>% 
+  ungroup() %>% 
+  pull(revenue) %>% 
+  mean()
+```
+
+For any given year, a cooperative harvests an average of `r mean_landings / 1e3` metric tons of abalone, which can represent an average of `r mean_revenues / 1e6` million mexican pesos (MXP). This implies that the average price is `r mean_revenues / mean_landings` pesos per kilogram.
+
+However, this analyses des not accout for the temporal trend in which cooperatives have been forced to reduce fishing effort due to the diwndling status of stocks. n FEDECOOPs website (https://www.fedecoop.com.mx/), they report that total extraction averages 290 metric tonnes for all cooperatives together. This value is closer to the more recent values.
 
 
 
