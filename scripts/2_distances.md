@@ -25,11 +25,11 @@ suppressPackageStartupMessages({
 ### Load data
 
 ``` r
-turfs <- st_read(here("raw_data", "spatial",  "feddecoop_polygons.gpkg")) %>% 
+turfs <- st_read(here("raw_data", "spatial",  "fedecoop_polygons.gpkg")) %>% 
   st_centroid()
 ```
 
-    ## Reading layer `feddecoop_polygons' from data source `/Users/juancarlosvillasenorderbez/GitHub/fedecoop/raw_data/spatial/feddecoop_polygons.gpkg' using driver `GPKG'
+    ## Reading layer `fedecoop_polygons' from data source `/Users/juancarlosvillasenorderbez/GitHub/fedecoop/raw_data/spatial/fedecoop_polygons.gpkg' using driver `GPKG'
     ## Simple feature collection with 9 features and 9 fields
     ## geometry type:  POLYGON
     ## dimension:      XY
@@ -52,8 +52,8 @@ rownames(turfs) <- turfs$Coop
 matrix <- as.matrix(st_distance(turfs, turfs)) %>% 
   set_units(km)
 
-colnames(matrix) <- turfs$Coop
-rownames(matrix) <- turfs$Coop
+colnames(matrix) <- turfs$coop
+rownames(matrix) <- turfs$coop
 
 matrix
 ```

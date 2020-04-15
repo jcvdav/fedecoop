@@ -33,11 +33,11 @@ and transform it to longlat
 coordinates.
 
 ``` r
-turfs <- st_read(here("raw_data", "spatial",  "feddecoop_polygons.gpkg")) %>% 
+turfs <- st_read(here("raw_data", "spatial",  "fedecoop_polygons.gpkg")) %>% 
   st_transform("+proj=longlat +datum=WGS84 +no_defs")
 ```
 
-    ## Reading layer `feddecoop_polygons' from data source `/Users/juancarlosvillasenorderbez/GitHub/fedecoop/raw_data/spatial/feddecoop_polygons.gpkg' using driver `GPKG'
+    ## Reading layer `fedecoop_polygons' from data source `/Users/juancarlosvillasenorderbez/GitHub/fedecoop/raw_data/spatial/fedecoop_polygons.gpkg' using driver `GPKG'
     ## Simple feature collection with 9 features and 9 fields
     ## geometry type:  POLYGON
     ## dimension:      XY
@@ -53,7 +53,7 @@ turfs %>%
   knitr::kable()
 ```
 
-| OBJECTID | FID\_FEDECO | Coop                      |        Ha | FID\_cedros | Id | ET\_ID | Shape\_Leng | Shape\_Area |
+| objectid | fid\_fedeco | coop                      |        ha | fid\_cedros | id | et\_id | shape\_leng | shape\_area |
 | -------: | ----------: | :------------------------ | --------: | ----------: | -: | :----- | ----------: | ----------: |
 |        1 |           1 | Bahia de Tortugas         |  48927.53 |         \-1 |  0 | NA     |    135346.8 |   489275313 |
 |        2 |           2 | Buzos y Pescadores        |  82244.71 |         \-1 |  0 | NA     |    120709.6 |   822447132 |
@@ -136,7 +136,7 @@ turf_map
 
 ``` r
 turf_map_with_text <- turf_map + 
-    geom_sf_text_repel(data = turf_centroids, aes(label = Coop), nudge_x = 4, nudge_y = 0, min.segment.length = 0, seed = 2)
+    geom_sf_text_repel(data = turf_centroids, aes(label = coop), nudge_x = 4, nudge_y = 0, min.segment.length = 0, seed = 2)
 
 turf_map_with_text
 ```

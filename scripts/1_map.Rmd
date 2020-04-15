@@ -39,7 +39,7 @@ suppressPackageStartupMessages({
 Let's load the data that contain the shapefiles for the 9 TURF polygons, and transform it to longlat coordinates.
 
 ```{r}
-turfs <- st_read(here("raw_data", "spatial",  "feddecoop_polygons.gpkg")) %>% 
+turfs <- st_read(here("raw_data", "spatial",  "fedecoop_polygons.gpkg")) %>% 
   st_transform("+proj=longlat +datum=WGS84 +no_defs")
 ```
 
@@ -108,7 +108,7 @@ turf_map <- ggplot() +
 turf_map
 
 turf_map_with_text <- turf_map + 
-    geom_sf_text_repel(data = turf_centroids, aes(label = Coop), nudge_x = 4, nudge_y = 0, min.segment.length = 0, seed = 2)
+    geom_sf_text_repel(data = turf_centroids, aes(label = coop), nudge_x = 4, nudge_y = 0, min.segment.length = 0, seed = 2)
 
 turf_map_with_text
 ```
