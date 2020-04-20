@@ -6,28 +6,14 @@ Juan Carlos Villaseñr-Derbez
 
 The previous Rmd file created a figure to show the location of nine
 TURFs that are part of FEDECOOP. This Rmd document will now calculate
-the pairwise distances between all TURFs.
+the pairwise distances between all
+    TURFs.
 
 ## Set up
 
 ### Load packages
 
-``` r
-suppressPackageStartupMessages({
-  library(here)
-  library(startR)
-  library(units)
-  library(sf)
-  library(tidyverse)
-})
-```
-
 ### Load data
-
-``` r
-turfs <- st_read(here("raw_data", "spatial",  "fedecoop_polygons.gpkg")) %>% 
-  st_centroid()
-```
 
     ## Reading layer `fedecoop_polygons' from data source `/Users/juancarlosvillasenorderbez/GitHub/fedecoop/raw_data/spatial/fedecoop_polygons.gpkg' using driver `GPKG'
     ## Simple feature collection with 9 features and 9 fields
@@ -43,20 +29,6 @@ turfs <- st_read(here("raw_data", "spatial",  "fedecoop_polygons.gpkg")) %>%
 We can now calculate the distance between all combinations of TURFs.
 This will produce a 9 X 9 matrix with all distances (in km), with a
 diagonal with valuea of 0.
-
-``` r
-# Assign rownames based on TURF name
-rownames(turfs) <- turfs$Coop
-
-# Calculate distance matrix (results are in meters)
-matrix <- as.matrix(st_distance(turfs, turfs)) %>% 
-  set_units(km)
-
-colnames(matrix) <- turfs$coop
-rownames(matrix) <- turfs$coop
-
-matrix
-```
 
     ## Units: [km]
     ##                           Bahia de Tortugas Buzos y Pescadores
@@ -90,10 +62,6 @@ matrix
     ## Punta Abreojos                    71.72387  42.07509        0.00000   268.70713
     ## Isla Cedros                      197.84202 226.76603      268.70713     0.00000
 
-``` r
-knitr::kable(matrix)
-```
-
 |                           | Bahia de Tortugas | Buzos y Pescadores | California de San Ignacio |     Emancipacion |      La Purisima | Leyes de Reforma |         Progreso |   Punta Abreojos |      Isla Cedros |
 | ------------------------- | ----------------: | -----------------: | ------------------------: | ---------------: | ---------------: | ---------------: | ---------------: | ---------------: | ---------------: |
 | Bahia de Tortugas         |    0.00000 \[km\] |    34.36685 \[km\] |           97.18328 \[km\] |  48.20886 \[km\] |  42.89460 \[km\] | 129.11863 \[km\] | 158.76908 \[km\] | 200.81062 \[km\] |  72.44570 \[km\] |
@@ -107,16 +75,6 @@ knitr::kable(matrix)
 | Isla Cedros               |   72.44570 \[km\] |    45.48110 \[km\] |          166.93908 \[km\] | 119.08127 \[km\] |  68.14903 \[km\] | 197.84202 \[km\] | 226.76603 \[km\] | 268.70713 \[km\] |   0.00000 \[km\] |
 
 Now, lets convert the matrix into a table just in case this is useful.
-
-``` r
-distance_as_table <- matrix %>%
-  as_tibble() %>% 
-  mutate(from = colnames(.)) %>% 
-  gather(to, value, -from) %>% 
-  mutate(value = as.numeric(value))
-
-distance_as_table
-```
 
     ## # A tibble: 81 x 3
     ##    from                      to                 value
@@ -135,37 +93,6 @@ distance_as_table
 
 Now let’s visualize and export this matrix.
 
-``` r
-heatmap <- ggplot(data = distance_as_table,
-       mapping = aes(x = from, y = to, fill = value)) +
-  geom_tile(color = "black", size = 0.5) +
-  coord_equal() +
-  ggtheme_plot() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  guides(fill = guide_colorbar(ticks.colour = "black",
-                               frame.colour = "black")) + 
-  labs(x = "", y = "") +
-  scale_fill_viridis_c(name = "Distance (km)") +
-  scale_x_discrete(expand = c(0, 0)) +
-  scale_y_discrete(expand = c(0, 0))
-
-heatmap
-```
-
 ![](2_distances_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
 
 We can now export both, the matrix and table, as well as the figure.
-
-``` r
-write.csv(x = matrix,
-          file = here::here("results", "distance_matrix.csv"))
-
-write.csv(x = distance_as_table,
-          file = here::here("results", "distance_table.csv"),
-          row.names = F)
-
-lazy_ggsave(plot = heatmap,
-            filename = "distance_heatmap",
-            width = 17,
-            height = 17)
-```

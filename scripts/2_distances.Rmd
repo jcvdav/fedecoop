@@ -11,7 +11,7 @@ The previous Rmd  file created a figure to show the location of nine TURFs that 
 ## Set up
 
 ```{r, include = F}
-knitr::opts_chunk$set(echo = TRUE,
+knitr::opts_chunk$set(echo = FALSE,
                       warning = FALSE,
                       message = FALSE)
 ```

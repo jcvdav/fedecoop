@@ -6,12 +6,12 @@ output: github_document
 
 # Intro
 
-This documents uses landings data from CONAPESCA (2000 - 2014). I will create a monthly time series and values for each cooperative.
+This documents uses landings data from CONAPESCA (2000 - 2014). I will create a monthly time series of landings and values for each cooperative.
 
 ## Set up
 
 ```{r, include = F}
-knitr::opts_chunk$set(echo = TRUE,
+knitr::opts_chunk$set(echo = FALSE,
                       warning = FALSE,
                       message = FALSE)
 ```
@@ -22,6 +22,7 @@ knitr::opts_chunk$set(echo = TRUE,
 suppressPackageStartupMessages({
   library(here)
   library(startR)
+  library(rnaturalearth)
   library(sf)
   library(janitor)
   library(tidyverse)
@@ -35,12 +36,15 @@ conapesca <- readRDS(here("raw_data", "conapesca.rds")) %>%
   clean_names()
 
 turfs <- st_read(here("raw_data", "spatial",  "fedecoop_polygons.gpkg"),
-                 stringsAsFactors = F) 
+                 stringsAsFactors = F) %>% 
+  st_transform("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84")
 ```
 
 ## Prepare data
 
-The first step is to filter the data for the 9 cooperatives of interest. So I'll filter the data, and group at the year-month level. Then I will be able to know the total monthly landings and the value that these fetched in the market.
+This is some very messy data. We'll first have to filter to include only the nince cooperatives that are part of FEDECOOP. Then, we'll keep only data on abalone, and then filter again to keep only data on abalone where weight is reported without accounting for abalone shell. Then I will modify the coperative names so that they match the spatial dataset.
+
+Once all teh filters and modifications are ready, I'll then group data at the coop-year level and create a timeseries of landings and value associated with those landings.
 
 ```{r}
 # A list of the cooperatives I want
@@ -48,20 +52,20 @@ coops_i_want <- c("Scpp bahia tortugas s.c de r.l", "Scpp bahia tortugas s.c de 
 
 # A list of the valid entries for abalone
 abalone_types_i_want <- c(
-  # "Abulon amarillo s.c. fco.",
-  "Abulon amarillo ent. fco.",
-  # "Abulon chino s.c. fco.",
-  "Abulon chino ent. fco.",
-  "Abulon rayado ent. fco.",
-  # "Abulon rojo s.c. fco.",
-  "Abulon rojo ent. fco.",
-  # "Abulon azul s.c. fco.",
-  "Abulon azul ent. fco.",
-  # "Abulon blanco s.c. fco.",
-  "Abulon blanco ent. fco.",
-  # "Abulon negro s.c. fco.",
-  "Abulon negro ent. fco.",
-  # "Abulon s.c. fco."
+  "Abulon amarillo s.c. fco.",
+  # "Abulon amarillo ent. fco.",
+  "Abulon chino s.c. fco.",
+  # "Abulon chino ent. fco.",
+  # "Abulon rayado ent. fco.",
+  "Abulon rojo s.c. fco.",
+  # "Abulon rojo ent. fco.",
+  "Abulon azul s.c. fco.",
+  # "Abulon azul ent. fco.",
+  "Abulon blanco s.c. fco.",
+  # "Abulon blanco ent. fco.",
+  "Abulon negro s.c. fco.",
+  # "Abulon negro ent. fco.",
+  "Abulon s.c. fco.",
   "Abulon ent. fco."
   )
 
@@ -78,34 +82,17 @@ coop_dictionary <- tibble(
                        "progreso",
                        "punta abreojos"))
 
-# A month dictionary
-month_dictionary <- tibble(
-  month = 1:12,
-  mes = c("Enero",
-          "Febrero",
-          "Marzo",
-          "Abril",
-          "Mayo",
-          "Junio",
-          "Julio",
-          "Agosto",
-          "Septiembre",
-          "Octubre",
-          "Noviembre",
-          "Diciembre"))
 # Now, filter, clean, and group by
 abalone_fishery <- conapesca %>% 
-  filter(ano >= 2005) %>% 
   filter(unidad_economica %in% coops_i_want) %>% 
   filter(str_detect(nombre_principal, "Abulon")) %>%
   filter(nombre_comun %in% abalone_types_i_want) %>% 
-  mutate(peso = peso_desembarcado) %>% 
-  # mutate(tipo = ifelse(str_detect(nombre_comun, "s.c."), "sin_concha", "entero")) %>% 
+  mutate(peso = peso_vivo) %>% 
+  # mutate(tipo = ifelse(str_detect(nombre_comun, "s.c."), "sin_concha", "entero")) %>%
   select(unidad_economica,
          mes,
          year = ano,
-         landed_weight = peso,
-         revenue = valor) %>% 
+         landed_weight = peso) %>% 
   mutate(unidad_economica = tolower(unidad_economica),
          unidad_economica = str_remove_all(unidad_economica, "scpp "),
          unidad_economica = str_remove_all(unidad_economica, "coop de prod pesq rib"),
@@ -119,14 +106,11 @@ abalone_fishery <- conapesca %>%
          unidad_economica = str_trim(unidad_economica),
          unidad_economica = str_squish(unidad_economica)) %>% 
   left_join(coop_dictionary, by = "unidad_economica") %>% 
-  left_join(month_dictionary, by = "mes") %>% 
-  select(coop, year, month, landed_weight, revenue) %>% 
-  group_by(year, month, coop) %>% 
-  summarize(landed_weight = sum(landed_weight, na.rm = T),
-            revenue = sum(revenue, na.rm = T)) %>% 
+  select(coop, year, landed_weight) %>% 
+  group_by(year, coop) %>% 
+  summarize(landed_weight = sum(landed_weight, na.rm = T)) %>% 
   ungroup() %>% 
-  mutate(price = revenue / landed_weight) %>% 
-  arrange(year, month, coop)
+  arrange(year, coop)
 ```
 
 The resulting table contins the total monthly landings and revenue (as well as price) at the coop-year-month level. A preview of this panel is this:
@@ -152,77 +136,26 @@ abalone_fishery %>%
   knitr::kable(caption = "Total landings (Kg) for each cooperative through time. NAs represent missing data for a given year / cooperative combination.")
 ```
 
-Now, let's look at the total revenues in the same way
 
 ```{r}
 abalone_fishery %>% 
-  group_by(year, coop) %>% 
-  summarize(revenues = sum(revenue, na.rm = T)) %>% 
-  ungroup() %>% 
-  spread(coop, revenues) %>% 
-  adorn_totals(where = c("row", "col"), na.rm = T) %>% 
-  knitr::kable(caption = "Total revenues (MXP) for each cooperative through time. NAs represent missing data for a given year / cooperative combination.")
-```
-
-
-```{r}
-abalone_fishery %>% 
-  group_by(coop) %>% 
-  summarize(landed_weight = sum(landed_weight, na.rm = T),
-            revenue = sum(revenue, na.rm = T)) %>% 
-  ungroup() %>% 
-  mutate(price = revenue / landed_weight) %>% 
-  knitr::kable(caption = "Annual mean landed weight, revenue, and price of abalone for each cooperative.")
-```
-
-
-```{r}
-abalone_fishery %>% 
-  group_by(year) %>% 
-  summarize(landed_weight = sum(landed_weight, na.rm = T),
-            revenue = sum(revenue, na.rm = T)) %>% 
-  ungroup() %>% 
-  mutate(price = revenue / landed_weight) %>% 
-  knitr::kable(caption = "Annual mean landed weight, revenue, and price of abalone for each year.")
-```
-
-
-```{r}
-abalone_fishery %>% 
-  gather(variable, value, -c(year, month, coop)) %>% 
-  filter(!variable == "price") %>% 
-  ggplot(mapping = aes(x = year, y = value, color = coop, fill = coop)) +
+  ggplot(mapping = aes(x = year, y = landed_weight, color = coop, fill = coop)) +
   stat_summary(geom = "line", fun = sum) +
-  facet_wrap(~variable, scales = "free_y", ncol = 1) +
   scale_color_brewer(name = "Cooperative", palette = "Set1") +
   ggtheme_plot() +
   ggtitle("Total annual landings and revenue for each cooperative") +
   labs(x = "Year", y = "value (in Kg or MXP)")
 ```
 
-```{r}
-abalone_fishery %>% 
-  select(coop, landed_weight, revenue) %>% 
-  gather(variable, value, -coop) %>% 
-  ggplot(aes(x = coop, y = value)) +
-  stat_summary(geom = "col", fun = sum, na.rm = T, color = "black", fill = "steelblue") +
-  facet_wrap(~variable, scales = "free_x", ncol = 1)+
-  ggtitle("Total landings and revenue for each cooperatives") +
-  labs(x = "Year", y = "value (in Kg or MXP)") +
-  ggtheme_plot() +
-  coord_flip()
-```
-
 
 ```{r}
 abalone_fishery %>% 
-  select(year, landed_weight, revenue) %>% 
-  gather(variable, value, -year) %>% 
-  ggplot(aes(x = year, y = value)) +
-  stat_summary(geom = "line", fun = sum, na.rm = T, color = "black") +
-  stat_summary(geom = "point", fun = sum, na.rm = T, color = "black", fill = "steelblue", shape = 21, size = 2) +
-  facet_wrap(~variable, scales = "free_y", ncol = 1)+
-  ggtitle("Total landings, and revenue for each cooperatives") +
+  group_by(year) %>% 
+  summarize(landed_weight = sum(landed_weight, na.rm = T)) %>% 
+  ggplot(aes(x = year, y = landed_weight)) +
+  geom_line(color = "black") +
+  geom_point(color = "black", fill = "steelblue", shape = 21, size = 2) +
+  ggtitle("Total landings by all FEDECOOP coperatives") +
   labs(x = "Year", y = "value (in Kg or MXP)") +
   ggtheme_plot()
 ```
@@ -233,54 +166,67 @@ The tables and figures above show the totals for each year and across all cooper
 
 ```{r}
 abalone_fishery %>% 
-  group_by(year, coop) %>% 
-  summarize(landed_weight = sum(landed_weight, na.rm = T),
-            revenue = sum(revenue, na.rm = T)) %>% 
   ungroup() %>% 
   select(-year) %>% 
   group_by(coop) %>% 
-  summarize_all(mean, na.rm = T) %>% 
+  summarize(mean = mean(landed_weight, na.rm = T),
+            sd = sd(landed_weight, na.rm = T)) %>% 
   ungroup() %>% 
-  knitr::kable(caption = "Annual mean landed weight and revenue for each cooperative.")
+  knitr::kable(caption = "Annual Mean and SDlanded weigh for each cooperative.")
 ```
 
 ```{r}
 abalone_fishery %>% 
-  select(coop, year, landed_weight, revenue) %>% 
-  group_by(coop, year) %>% 
-  summarize_all(sum, na.rm = T) %>% 
   ungroup() %>% 
-  gather(variable, value, -c(year, coop)) %>% 
-  ggplot(aes(x = coop, y = value)) +
-  stat_summary(geom = "errorbar", fun.data = mean_sdl, width = 0) +
-  stat_summary(geom = "col", fun = mean, fill = "steelblue", color = "black") +
+  select(-year) %>% 
+  group_by(coop) %>% 
+  summarize(mean = mean(landed_weight, na.rm = T),
+            sd = sd(landed_weight, na.rm = T)) %>% 
+  ungroup() %>% 
+  ggplot(aes(x = coop)) + 
+  geom_errorbar(aes(ymin = mean, ymax = mean + sd, width = 0.2)) +
+  geom_col(aes(y = mean), fill = "steelblue", color = "black") +
   ggtheme_plot() +
-  coord_flip() +
-  facet_wrap(~variable, scales = "free_x")
-```
-
-```{r}
-mean_landings <- abalone_fishery %>% 
-  group_by(year, coop) %>% 
-  summarize(landed_weight = sum(landed_weight, na.rm = T),
-            revenue = sum(revenue, na.rm = T)) %>% 
-  ungroup() %>% 
-  pull(landed_weight) %>% 
-  mean()
+  coord_flip()
 ```
 
 
-```{r}
-mean_revenues <- abalone_fishery %>% 
-  group_by(year, coop) %>% 
-  summarize(landed_weight = sum(landed_weight, na.rm = T),
-            revenue = sum(revenue, na.rm = T)) %>% 
-  ungroup() %>% 
-  pull(revenue) %>% 
-  mean()
+```{r, fig.width = 5, fig.height = 5}
+baja <- ne_states(country = "Mexico", returnclass = "sf") %>% 
+  filter(name %in% c("Baja California", "Baja California Sur")) %>% 
+  st_crop(st_buffer(st_as_sfc(st_bbox(turfs)), 1)) %>% 
+  st_union()
+
+a <- abalone_fishery %>% 
+  group_by(coop) %>% 
+  summarize(landed_weight = mean(landed_weight, na.rm = T))
+
+turfs %>% 
+  left_join(a) %>% 
+  ggplot() +
+  geom_sf(data = baja) +
+  geom_sf(aes(fill = landed_weight / 1e3)) +
+  ggtheme_map() +
+  scale_fill_viridis_c(name = "Mean landings\n2000-2014\n(metric tones)") +
+  guides(fill = guide_colorbar(frame.colour = "black",
+                               ticks.colour = "black"))
 ```
 
-For any given year, a cooperative harvests an average of `r mean_landings / 1e3` metric tons of abalone, which can represent an average of `r mean_revenues / 1e6` million mexican pesos (MXP). This implies that the average price is `r mean_revenues / mean_landings` pesos per kilogram.
+```{r, fig.width = 5, fig.height = 5}
+turfs %>% 
+  mutate(area = st_area(.),
+         area = as.numeric(area) / 1e6) %>% 
+  left_join(a) %>% 
+  mutate(landed_weight_norm = (landed_weight / 1000) / (area / 1000)) %>% 
+  ggplot() +
+  geom_sf(data = baja) +
+  geom_sf(aes(fill = landed_weight_norm)) +
+  ggtheme_map() +
+  scale_fill_viridis_c(name = "Mean landings\n2000-2014\n(metric tones / Km2)") +
+  guides(fill = guide_colorbar(frame.colour = "black",
+                               ticks.colour = "black"))
+```
+
 
 However, this analyses des not accout for the temporal trend in which cooperatives have been forced to reduce fishing effort due to the diwndling status of stocks. n FEDECOOPs website (https://www.fedecoop.com.mx/), they report that total extraction averages 290 metric tonnes for all cooperatives together. This value is closer to the more recent values.
 

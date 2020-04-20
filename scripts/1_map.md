@@ -13,29 +13,11 @@ cooperatives that. This Rmd file creates a map of these TURFS
 
 ### Load libraries
 
-``` r
-suppressPackageStartupMessages({
-  library(startR)
-  library(here)
-  library(cowplot)
-  library(rnaturalearth)
-  library(sf)
-  library(ggsflabel)
-  library(SpatialPosition)
-  library(tidyverse)
-})
-```
-
 ### Load data
 
 Let’s load the data that contain the shapefiles for the 9 TURF polygons,
 and transform it to longlat
-coordinates.
-
-``` r
-turfs <- st_read(here("raw_data", "spatial",  "fedecoop_polygons.gpkg")) %>% 
-  st_transform("+proj=longlat +datum=WGS84 +no_defs")
-```
+    coordinates.
 
     ## Reading layer `fedecoop_polygons' from data source `/Users/juancarlosvillasenorderbez/GitHub/fedecoop/raw_data/spatial/fedecoop_polygons.gpkg' using driver `GPKG'
     ## Simple feature collection with 9 features and 9 fields
@@ -45,13 +27,8 @@ turfs <- st_read(here("raw_data", "spatial",  "fedecoop_polygons.gpkg")) %>%
     ## projected CRS:  WGS 84 / UTM zone 11N
 
 Let’s briefly visualize this data. It contains 9 features (TURFs) and 9
-fields (columns). The columns are:
-
-``` r
-turfs %>% 
-  st_drop_geometry() %>% 
-  knitr::kable()
-```
+fields (columns). The columns
+are:
 
 | objectid | fid\_fedeco | coop                      |        ha | fid\_cedros | id | et\_id | shape\_leng | shape\_area |
 | -------: | ----------: | :------------------------ | --------: | ----------: | -: | :----- | ----------: | ----------: |
@@ -69,10 +46,6 @@ We see that most columns are not very important for us. But the total
 area might come in handy, so we’ll leave that there. Now, let’s rapidly
 visualize them, using area to color them.
 
-``` r
-plot(turfs[ , 9])
-```
-
 ![](1_map_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
 
 # Map
@@ -81,77 +54,20 @@ The first step is to build a publication-quality map. Something that
 will probably end up as a supplementary figure.
 
 First, we need the coastline for Mexico and Baja. Let’s get both from
-the `rnaturalearth`
-package.
-
-``` r
-mexico <- ne_countries(scale = 10, country = "Mexico", returnclass = "sf")
-baja <- ne_states(country = "Mexico", returnclass = "sf") %>% 
-  filter(name %in% c("Baja California", "Baja California Sur")) %>% 
-  st_crop(st_buffer(st_as_sfc(st_bbox(turfs)), 1)) %>% 
-  st_union()
-```
+the `rnaturalearth` package.
 
 Now let’s create a map of Mexico to use as reference map.
-
-``` r
-# Create a square based on the bounding box of the TURFs
-square <- st_as_sfc(st_bbox(turfs))
-
-# Create a reference map
-mex_map <- ggplot() +
-  geom_sf(data = mexico, color = "black", fill = "black") +
-  geom_sf(data = square, fill = "transparent", size = 1, color = "red") +
-  ggtheme_map() +
-  theme(plot.background = element_blank())
-
-# View the map
-mex_map
-```
 
 ![](1_map_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
 
 Now let’s create a map of the actual cooperatives. We might want to
 include their names and locations too. So lets create a shapefile of
-their sentroids first.
+their sentroids
+first.
 
-``` r
-turf_centroids <- st_centroid(turfs) %>% 
-  mutate(a = LETTERS[1:nrow(.)])
-```
-
-``` r
-turf_map <- ggplot() +
-  geom_sf(data = baja, color = "black") +
-  geom_sf(data = turfs, fill = "transparent", color = "black") +
-  geom_sf(data = turf_centroids, color = "red") +
-  ggtheme_plot() +
-  theme(legend.position = "top") +
-  labs(x = "", y = "")
-
-turf_map
-```
-
-![](1_map_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
-
-``` r
-turf_map_with_text <- turf_map + 
-    geom_sf_text_repel(data = turf_centroids, aes(label = coop), nudge_x = 4, nudge_y = 0, min.segment.length = 0, seed = 2)
-
-turf_map_with_text
-```
-
-![](1_map_files/figure-gfm/unnamed-chunk-9-2.png)<!-- -->
+![](1_map_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->![](1_map_files/figure-gfm/unnamed-chunk-9-2.png)<!-- -->
 
 Now, lets combine them into a finalized plot that we can export.
-
-``` r
-map_final <- ggdraw() +
-  draw_plot(turf_map) +
-  draw_plot(mex_map, x = 0.1, y = -0.05, width = 0.45, height = 0.45)
-
-map_final
-```
 
 ![TURFs for nine fishing cooperatives belonging to the federation of
 cooepratives (FEDECOOP) in Baja California and Baja California Sur,
@@ -160,21 +76,6 @@ calculate pairwise distances between TURFs. The lower left corner shows
 an insert of Mexico, with a red box showing the general location of
 these TURFs.](1_map_files/figure-gfm/unnamed-chunk-10-1.png)
 
-``` r
-map_final2 <- ggdraw() +
-  draw_plot(turf_map_with_text) +
-  draw_plot(mex_map, x = 0.1, y = -0.05, width = 0.45, height = 0.45)
-
-map_final
-```
-
 ![](1_map_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
 
 Export the figure
-
-``` r
-lazy_ggsave(plot = map_final,
-            filename = "fedecoop_map",
-            width = 17,
-            height = 17)
-```
