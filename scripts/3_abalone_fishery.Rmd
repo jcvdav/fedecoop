@@ -42,9 +42,9 @@ turfs <- st_read(here("raw_data", "spatial",  "fedecoop_polygons.gpkg"),
 
 ## Prepare data
 
-This is some very messy data. We'll first have to filter to include only the nince cooperatives that are part of FEDECOOP. Then, we'll keep only data on abalone, and then filter again to keep only data on abalone where weight is reported without accounting for abalone shell. Then I will modify the coperative names so that they match the spatial dataset.
+Thes are some very messy data. We'll first have to filter it to keep only the nince cooperatives that are part of FEDECOOP. Then, we'll keep only data on abalone, and then filter again to keep only data on abalone where weight is reported without accounting for abalone shell. Then I will modify the coperative names so that they match the spatial dataset.
 
-Once all teh filters and modifications are ready, I'll then group data at the coop-year level and create a timeseries of landings and value associated with those landings.
+Once all the filters and modifications are ready, I'll then group data at the coop-year level and create a time series of landings. Landings data will be reported in metric tones. The resulting table contins the total annual landings at the coop level. A preview of this panel is this:
 
 ```{r}
 # A list of the cooperatives I want
@@ -86,6 +86,7 @@ coop_dictionary <- tibble(
 abalone_fishery <- conapesca %>% 
   filter(unidad_economica %in% coops_i_want) %>% 
   filter(str_detect(nombre_principal, "Abulon")) %>%
+  filter(ano <= 2014) %>% 
   filter(nombre_comun %in% abalone_types_i_want) %>% 
   mutate(peso = peso_vivo) %>% 
   # mutate(tipo = ifelse(str_detect(nombre_comun, "s.c."), "sin_concha", "entero")) %>%
@@ -108,12 +109,10 @@ abalone_fishery <- conapesca %>%
   left_join(coop_dictionary, by = "unidad_economica") %>% 
   select(coop, year, landed_weight) %>% 
   group_by(year, coop) %>% 
-  summarize(landed_weight = sum(landed_weight, na.rm = T)) %>% 
+  summarize(landed_weight = sum(landed_weight, na.rm = T) / 1000) %>% 
   ungroup() %>% 
   arrange(year, coop)
 ```
-
-The resulting table contins the total monthly landings and revenue (as well as price) at the coop-year-month level. A preview of this panel is this:
 
 ```{r}
 head(abalone_fishery, 24) %>% 
@@ -122,9 +121,9 @@ head(abalone_fishery, 24) %>%
 
 # Tables and Figures
 
-## Total landings and revenues
+## Total landings
 
-Let's create a table that shows the total landings for each cooperative on any given year.
+Let's create a table that shows the total landings for each cooperative on any given year. We'll also add row total and column totals.
 
 ```{r}
 abalone_fishery %>% 
@@ -136,6 +135,7 @@ abalone_fishery %>%
   knitr::kable(caption = "Total landings (Kg) for each cooperative through time. NAs represent missing data for a given year / cooperative combination.")
 ```
 
+The table above is shown in the figures below. The first figure shows the timseries of landed abalone for each cooperative. The second figure shows the aggregate abalone landings for all FEDECOOP cooperatives.
 
 ```{r}
 abalone_fishery %>% 
@@ -144,7 +144,7 @@ abalone_fishery %>%
   scale_color_brewer(name = "Cooperative", palette = "Set1") +
   ggtheme_plot() +
   ggtitle("Total annual landings and revenue for each cooperative") +
-  labs(x = "Year", y = "value (in Kg or MXP)")
+  labs(x = "Year", y = "Landings (Tones)")
 ```
 
 
@@ -153,10 +153,13 @@ abalone_fishery %>%
   group_by(year) %>% 
   summarize(landed_weight = sum(landed_weight, na.rm = T)) %>% 
   ggplot(aes(x = year, y = landed_weight)) +
+  geom_hline(aes(yintercept = mean(landed_weight, na.rm = T) - sd(landed_weight, na.rm = T))) +
+  geom_hline(aes(yintercept = mean(landed_weight, na.rm = T)), linetype = "dashed") +
+  geom_hline(aes(yintercept = mean(landed_weight, na.rm = T) + sd(landed_weight, na.rm = T))) +
   geom_line(color = "black") +
   geom_point(color = "black", fill = "steelblue", shape = 21, size = 2) +
   ggtitle("Total landings by all FEDECOOP coperatives") +
-  labs(x = "Year", y = "value (in Kg or MXP)") +
+  labs(x = "Year", y = "Landings (Tones)") +
   ggtheme_plot()
 ```
 
@@ -172,7 +175,7 @@ abalone_fishery %>%
   summarize(mean = mean(landed_weight, na.rm = T),
             sd = sd(landed_weight, na.rm = T)) %>% 
   ungroup() %>% 
-  knitr::kable(caption = "Annual Mean and SDlanded weigh for each cooperative.")
+  knitr::kable(caption = "Annual Mean and SD landed weigh for each cooperative.")
 ```
 
 ```{r}
@@ -204,8 +207,8 @@ a <- abalone_fishery %>%
 turfs %>% 
   left_join(a) %>% 
   ggplot() +
-  geom_sf(data = baja) +
-  geom_sf(aes(fill = landed_weight / 1e3)) +
+  geom_sf(data = baja, color = "black") +
+  geom_sf(aes(fill = landed_weight)) +
   ggtheme_map() +
   scale_fill_viridis_c(name = "Mean landings\n2000-2014\n(metric tones)") +
   guides(fill = guide_colorbar(frame.colour = "black",
@@ -217,18 +220,32 @@ turfs %>%
   mutate(area = st_area(.),
          area = as.numeric(area) / 1e6) %>% 
   left_join(a) %>% 
-  mutate(landed_weight_norm = (landed_weight / 1000) / (area / 1000)) %>% 
+  mutate(landed_weight_norm = landed_weight / area) %>% 
   ggplot() +
-  geom_sf(data = baja) +
+  geom_sf(data = baja, color = "black") +
   geom_sf(aes(fill = landed_weight_norm)) +
   ggtheme_map() +
-  scale_fill_viridis_c(name = "Mean landings\n2000-2014\n(metric tones / Km2)") +
+  scale_fill_viridis_c(name = "Mean landings\n2000-2014\n(tones / Km2)") +
   guides(fill = guide_colorbar(frame.colour = "black",
                                ticks.colour = "black"))
 ```
 
+```{r}
 
-However, this analyses des not accout for the temporal trend in which cooperatives have been forced to reduce fishing effort due to the diwndling status of stocks. n FEDECOOPs website (https://www.fedecoop.com.mx/), they report that total extraction averages 290 metric tonnes for all cooperatives together. This value is closer to the more recent values.
+grand_mean <- abalone_fishery %>% 
+  group_by(year) %>% 
+  summarize(weight = sum(landed_weight, na.rm = T)) %>% 
+  pull(weight)
+
+gm <- mean(grand_mean)
+gsd <- sd(grand_mean)
+
+```
+
+Based on the 2000 - 2014 data, a cooperative's mean catch is `r mean(abalone_fishery$landed_weight)` $\pm$ `r sd(abalone_fishery$landed_weight)` tones (mean $\pm$ SD). Total annual extraction to be `r gm` $\pm$ `r gsd` (mean $\pm$ SD). In FEDECOOPs website (https://www.fedecoop.com.mx/), they report that current total abalone extraction averages 290 metric tonnes for all cooperatives together. This value is closer to the more recent value in these data.
+
+
+However, this analyses des not accout for the temporal trend in which cooperatives have been forced to reduce fishing effort due to the diwndling status of stocks. I
 
 
 

@@ -1,0 +1,264 @@
+---
+title: "Abalone model"
+author: "Juan Carlos Villaseñr-Derbez"
+output: github_document
+---
+
+# Intro
+
+This documents constructs a spatially-explicit and size-structured model for Abalones in Marine Reserve contexts. This is a reconstru tion of the 2015 paper by Marissa Rosetto: 
+
+> Rossetto, M., Micheli, F., Saenz-Arroyo, A., Montes, J. A. E., & De Leo, G. A. (2015). No-take marine reserves can enhance population persistence and support the fishery of abalone. Canadian Journal of Fisheries and Aquatic Sciences, 72(10), 1503-1517.
+
+## Set up
+
+```{r, include = F}
+knitr::opts_chunk$set(echo = FALSE,
+                      warning = FALSE,
+                      message = FALSE)
+```
+
+### Load packages
+
+```{r}
+suppressPackageStartupMessages({
+  library(here)
+  library(startR)
+  library(tidyverse)
+})
+```
+
+# Model
+
+The model has 150 patches, each of which represent a 100 X 500 m parcel (*i.e.* 5 hectares). The population contains 9 size classes, in 25 mm increments. Density-dependence occurs during settlement of larvae.
+
+## Define model parameters and components
+
+All these parameters are presented roughly in the same order as Table 1 in Rosstto et al 2015.
+
+
+### Index and spatial variables
+
+```{r}
+n_steps <- 75                                             # Number of iterations into the future
+n_classes <- 9                                            # Number of size classes
+n_patches <- 150                                          # Number of patches in the system
+A <- 5                                                    # Patch area (5 hectares)
+
+N <- array(
+  dim = c(n_classes,                                      # Each row in a matrix is a size
+          n_patches,                                      # Each column in a matrix is a patch
+          n_steps                                         # Each layer in the array is a time step
+  ))
+
+N[, , 1] <- 10                                           # Set initial population sizes fo all classes and patches
+```
+
+### Lenght and mass
+
+```{r}
+size_class <- c("5–30",                                 # Size classes as text
+                "30–55",
+                "55–80",
+                "80–105",
+                "105–130",
+                "130–155",
+                "155–180",
+                "180–205",
+                "205–230")
+l_i <- 17.5 + (25 * 0:(n_classes - 1))                  # Mean abalone length for each length class
+a <- 2.24e-5                                            # "a" parameter in allometric growth
+b <- 3.36                                               # "b" paramteter in allometric growth
+w_i <- a * (l_i ^ b)                                    # Weight-at-length for each class
+```
+
+### Harvest
+
+```{r}
+# Fixed parameters
+mls <- 155                                               # Minimum Landings Size (155 mm)
+h <- 0.7                                                 # Harvest rate (0, 1). This should be the control variable
+h_i <- (l_i >= mls) * h                                  # Vector of size-specific harvesting
+
+# A function to talculate harvest
+catch <- function(w_i, h, N_izt){
+  sum((w_i * h * N_izt * 5) * 10e6)
+}
+```
+
+### Natural Mortality
+
+In abalone, natural mortality rates of settled individuals have been shown to be size-dependent, with survival probabilities increasing with size (Rossetto et al. 2012). Accordingly, size-specific mortality rates $\mu_i$ (year−1) were calculated from mean body mass in each size class wi (g) using the empirical allometric relationship between instantaneous mortality rates and body mass reported for abalones in natural environments (Rossetto et al. 2012):
+
+$$
+ln(\mu_i) = \theta + \alpha ln(l_i)
+$$
+Annual survival si (i.e., the fraction of individuals in class i that survive to the following year) was then computed as:
+
+$$
+s_i = e^{-\mu_i}
+$$
+
+```{r}
+theta <-  0.635
+alpha <- -0.317
+mu_i <- exp(theta + (alpha * log(w_i)))
+s_i <- exp(-mu_i)
+names(s_i) <- size_class
+```
+
+### Somatic growth
+
+From Table A1 - "Growth transition g_{i,j}, from initial class j to final class i
+
+```{r}
+# Create matrix
+G <- matrix(
+  data = c(0.166, 0, 0, 0, 0, 0, 0, 0, 0,
+           0.590, 0.02, 0, 0, 0, 0, 0, 0, 0,
+           0.242, 0.533, 0.014, 0, 0, 0, 0, 0, 0,
+           0.003, 0.429, 0.553, 0.028, 0, 0, 0, 0, 0,
+           0, 0.018, 0.424, 0.77, 0.102, 0, 0, 0, 0,
+           0, 0, 0.008, 0.202, 0.878, 0.317, 0, 0, 0,
+           0, 0, 0, 0, 0.02, 0.683, 0.549, 0, 0,
+           0, 0, 0, 0, 0, 0, 0.451, 0.694, 0,
+           0, 0, 0, 0, 0, 0, 0, 0.306, 1),
+  nrow = 9,
+  byrow = TRUE )
+
+# Assign names
+colnames(G) <- size_class
+rownames(G) <- size_class
+
+G
+```
+
+### Fecundity
+
+```{r}
+# Fixed parameters
+e <- 3772                                               # Number of eggs produced per gram of female individual
+nu <- 135.99                                            # inflection point from Rosetto et al., 2013
+mu <- 20.20                                             # inv. prop. to the slope at 1=mu From Rosetto et al., 2013
+psi_i <- 1 / (1 + exp(-((l_i - nu)/(mu))))              # Fraction of sexually mature individuals of class i      
+
+# The vector of number of eggs produced in each patch is produced by this function, which depends on:
+# - eggs produced per gram of female individual
+# - mean weight of individuals in class i
+# - fraction of sexualy matyre individuals of class i
+# - number of organisms in each patch and size class
+eggs <- function(e, w_i, psi_i, N_izt) {
+  E <- colSums(0.5 * e * w_i * psi_i * N_izt)
+  return(E)
+}
+```
+
+### Larval and settler survival
+
+```{r}
+# Fixed parameters
+K <- 10e7                                               # Carrying capacity of settlers (ind / hectare)
+sigma_e <- 3.09e-3                                      # Survival from eggs to settlers
+sigma_o <- 0.01                                         # Survival of settlers at low densities
+
+# Functions that create parameters
+# Survival of settlers during the first year of life depends on:
+# - the survival of settlers at low densities
+# - number of settlers
+# - Carrying capacity
+sigma_s <- function(sigma_o, S, K) {
+  sigma_o * exp((-S/(K * 5)))
+}
+```
+
+### Larval dispersal
+
+```{r, fig.height = 2, fig.width = 4}
+d <- 300                                                # Larval dispersal distance (m)
+sigma_d <- 116.4674                                     # Set so that 99% of larvae are retained at dist =/- d
+pnorm(d, 0, sd = sigma_d) - pnorm(-d, 0, sd = sigma_d)  # Proportion of larvae retained?
+
+ks <- (1:150) - 75                                      # Vector of patch indices
+xs_u <- 100 * (ks + 0.5)                                # Vector fo patch distances (upper integral limit)
+xs_l <- 100 * (ks - 0.5)                                # Vector of patch distances (lower integral limit)
+rho <- pnorm(xs_u, 0, sd = sigma_d) - pnorm(xs_l, 0, sd = sigma_d)# Proportion of larvae ending up in each patch
+plot(ks, rho, type = "l")
+```
+
+For simplicity, I'll create a connectivity matrix.
+
+```{r}
+rho_mod <- c(rho[75:n_patches], rho[1:74])                # Modify indices
+rho_mat <- matrix(nrow = n_patches,                       # Create the 9 X 9 dispersal matrix
+                  ncol = n_patches)
+rho_mat[1,] <- rho_mod                                    # First row is simply the rearranged one
+# Iterate across i (patch) to build the matrix
+for(i in 2:n_patches) {
+  rho_i <- c(rho_mod[(n_patches - i + 2) : n_patches], rho_mod[1:(n_patches - i + 1)])
+  rho_mat[i, ] <- rho_i
+}
+
+image(rho_mat)
+```
+
+Then, settlers are just a function of the number of eggs produced, and where they end up in
+
+```{r}
+settlers <- function(sigma, E, rho_mat) {
+  sigma * colSums(E *  rho_mat)
+}
+```
+
+
+## Building the model
+
+
+### Transition Matrix $M$
+
+The transition matrix needs three pieces of information. Growth, survival, and harvest.
+
+```{r}
+M <- s_i * (1 - h_i) * G                                 # The M matrix is defined in equation 2 of the paper
+M
+```
+
+
+```{r}
+for(i in 2:n_steps) {
+  E <- eggs(e = e, w_i = w_i, psi_i = psi_i, N_izt = N[, , i-1])
+  
+  S <- settlers(sigma = sigma_e, E = E, rho_mat = rho_mat)
+  
+  ss <- sigma_s(sigma_o, S, K)
+  
+  R <- ss * S
+  
+  N_now <- M %*% N[,,i-1]
+  N_now[1,] <- N_now[1,] + R
+  
+  N[, ,i] <- N_now
+}
+
+n_t <- apply(N, 3, sum, na.rm = T)
+
+plot(n_t)
+
+```
+
+```{r}
+apply(N, 1, function(x){apply(x, 2, sum)}) %>% 
+  magrittr::set_colnames(size_class) %>% 
+  as_tibble() %>% 
+  mutate(t = 1:n_steps) %>% 
+  gather(class, n, -t) %>% 
+  mutate(class = fct_relevel(class, size_class)) %>% 
+  ggplot(aes(x = t, y = n, color = class)) +
+  geom_line(size = 1) +
+  ggtheme_plot() +
+  scale_color_brewer(palette = "Set1")
+```
+
+
+
+
+
