@@ -40,7 +40,7 @@ All these parameters are presented roughly in the same order as Table 1 in Rosst
 ### Index and spatial variables
 
 ```{r}
-n_steps <- 75                                             # Number of iterations into the future
+n_steps <- 150                                             # Number of iterations into the future
 n_classes <- 9                                            # Number of size classes
 n_patches <- 150                                          # Number of patches in the system
 A <- 5                                                    # Patch area (5 hectares)
@@ -51,7 +51,8 @@ N <- array(
           n_steps                                         # Each layer in the array is a time step
   ))
 
-N[, , 1] <- 10                                           # Set initial population sizes fo all classes and patches
+N[, , 1] <- c(1000, rep(10, 8))                                           # Set initial population sizes fo all classes and patches
+r <- rep(c(0, 1, 1, 0, 1, 1, 1, 0, 1, 1), 15)                                  # Reserve system
 ```
 
 ### Lenght and mass
@@ -79,6 +80,7 @@ w_i <- a * (l_i ^ b)                                    # Weight-at-length for e
 mls <- 155                                               # Minimum Landings Size (155 mm)
 h <- 0.7                                                 # Harvest rate (0, 1). This should be the control variable
 h_i <- (l_i >= mls) * h                                  # Vector of size-specific harvesting
+h_iz <- h_i %*% t(r)                                     # Matrix that indicates where harvesting occurs for esch size class
 
 # A function to talculate harvest
 catch <- function(w_i, h, N_izt){
@@ -86,7 +88,7 @@ catch <- function(w_i, h, N_izt){
 }
 ```
 
-### Natural Mortality
+### Natural Mortality in adults
 
 In abalone, natural mortality rates of settled individuals have been shown to be size-dependent, with survival probabilities increasing with size (Rossetto et al. 2012). Accordingly, size-specific mortality rates $\mu_i$ (year−1) were calculated from mean body mass in each size class wi (g) using the empirical allometric relationship between instantaneous mortality rates and body mass reported for abalones in natural environments (Rossetto et al. 2012):
 
@@ -100,11 +102,22 @@ s_i = e^{-\mu_i}
 $$
 
 ```{r}
-theta <-  0.635
-alpha <- -0.317
-mu_i <- exp(theta + (alpha * log(w_i)))
-s_i <- exp(-mu_i)
-names(s_i) <- size_class
+theta_m <-  0.631
+theta_sd <- 0.102
+alpha_m <- -0.317
+alpha_sd <- 0.027
+
+survival <- function(theta_m, theta_sd, alpha_m, alpha_sd) {
+  
+  theta <- rnorm(1, mean = theta_m, sd = theta_sd)
+  alpha <- rnorm(1, mean = alpha_m, sd = alpha_sd)
+  
+  mu_i <- exp(theta + (alpha * log(w_i)))
+  exp(theta) * w_i ^ alpha
+  s_i <- exp(-mu_i)
+  
+  return(s_i)
+}
 ```
 
 ### Somatic growth
@@ -137,7 +150,8 @@ G
 
 ```{r}
 # Fixed parameters
-e <- 3772                                               # Number of eggs produced per gram of female individual
+e_mean <- 3772                                          # Mean umber of eggs produced per gram of female individual
+e_sd <- 330                                             # SD of the above
 nu <- 135.99                                            # inflection point from Rosetto et al., 2013
 mu <- 20.20                                             # inv. prop. to the slope at 1=mu From Rosetto et al., 2013
 psi_i <- 1 / (1 + exp(-((l_i - nu)/(mu))))              # Fraction of sexually mature individuals of class i      
@@ -148,7 +162,7 @@ psi_i <- 1 / (1 + exp(-((l_i - nu)/(mu))))              # Fraction of sexually m
 # - fraction of sexualy matyre individuals of class i
 # - number of organisms in each patch and size class
 eggs <- function(e, w_i, psi_i, N_izt) {
-  E <- colSums(0.5 * e * w_i * psi_i * N_izt)
+  E <- 0.5 * e * colSums(w_i * psi_i * N_izt)
   return(E)
 }
 ```
@@ -158,7 +172,8 @@ eggs <- function(e, w_i, psi_i, N_izt) {
 ```{r}
 # Fixed parameters
 K <- 10e7                                               # Carrying capacity of settlers (ind / hectare)
-sigma_e <- 3.09e-3                                      # Survival from eggs to settlers
+sigma_e_m <- 3.09e-3                                    # Mean survival from eggs to settlers
+sigma_e_sd <- 0.33e-3                                   # SD of survival
 sigma_o <- 0.01                                         # Survival of settlers at low densities
 
 # Functions that create parameters
@@ -167,7 +182,7 @@ sigma_o <- 0.01                                         # Survival of settlers a
 # - number of settlers
 # - Carrying capacity
 sigma_s <- function(sigma_o, S, K) {
-  sigma_o * exp((-S/(K * 5)))
+  sigma_o * exp((-S/(K)))
 }
 ```
 
@@ -217,7 +232,7 @@ settlers <- function(sigma, E, rho_mat) {
 
 The transition matrix needs three pieces of information. Growth, survival, and harvest.
 
-```{r}
+```{r, eval = F}
 M <- s_i * (1 - h_i) * G                                 # The M matrix is defined in equation 2 of the paper
 M
 ```
@@ -225,29 +240,57 @@ M
 
 ```{r}
 for(i in 2:n_steps) {
-  E <- eggs(e = e, w_i = w_i, psi_i = psi_i, N_izt = N[, , i-1])
+  # Eggs
+  ## Egg production
+  e <- rnorm(1, mean = e_mean, sd = e_sd)
+  E <- eggs(e = e,
+            w_i = w_i,
+            psi_i = psi_i,
+            N_izt = N[, , i-1])
+  ## Egg survival into settlers
+  sigma_e <- rnorm(1, mean = sigma_e_m, sd = sigma_e_sd)
+  S <- settlers(sigma = sigma_e,
+                E = E,
+                rho_mat = rho_mat)
   
-  S <- settlers(sigma = sigma_e, E = E, rho_mat = rho_mat)
+  ## Adult survival
+  s_i <- survival(theta_m, theta_sd, alpha_m, alpha_sd)
+  M <- s_i * G 
   
-  ss <- sigma_s(sigma_o, S, K)
-  
+  ss <- sigma_s(sigma_o = sigma_o,
+                S = S,
+                K = K)
   R <- ss * S
   
-  N_now <- M %*% N[,,i-1]
-  N_now[1,] <- N_now[1,] + R
+  N_after_harvest <- (1 - h_iz) * N[, , i-1]
+  N_now <- M %*% N_after_harvest
+  N_now[1, ] <- N_now[1, ] + R
   
-  N[, ,i] <- N_now
+  N[, , i] <- N_now
 }
 
-n_t <- apply(N, 3, sum, na.rm = T)
+n_t <- apply(N[-1,,], 3, sum, na.rm = T)
+mean(n_t / 1e6)
 
-plot(n_t)
+plot(n_t, type = "l")
+abline(h = 25e6)
+abline(h = mean(n_t), col = "blue")
 
 ```
 
 ```{r}
-apply(N, 1, function(x){apply(x, 2, sum)}) %>% 
-  magrittr::set_colnames(size_class) %>% 
+plot(n_t, c(NA, diff(n_t)))
+
+log(n_t / lag(n_t)) %>% mean(na.rm = T)
+
+# lm(log(n_t / lag(n_t)) ~ n_t) %>%
+  # summary()
+```
+
+
+```{r}
+apply(N[-1, , ], 1, function(x){apply(x, 2, sum)}) %>% 
+  magrittr::set_colnames(size_class[-1]) %>% 
   as_tibble() %>% 
   mutate(t = 1:n_steps) %>% 
   gather(class, n, -t) %>% 
@@ -258,6 +301,9 @@ apply(N, 1, function(x){apply(x, 2, sum)}) %>%
   scale_color_brewer(palette = "Set1")
 ```
 
+```{r}
+
+```
 
 
 

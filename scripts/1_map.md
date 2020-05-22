@@ -24,7 +24,7 @@ and transform it to longlat
     ## geometry type:  POLYGON
     ## dimension:      XY
     ## bbox:           xmin: 614359.1 ymin: 2896921 xmax: 873150.6 ymax: 3172240
-    ## projected CRS:  WGS 84 / UTM zone 11N
+    ## CRS:            32611
 
 Let’s briefly visualize this data. It contains 9 features (TURFs) and 9
 fields (columns). The columns
