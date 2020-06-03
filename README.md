@@ -36,7 +36,11 @@
 
 ### Map of the Cooperatives
 
-![Map of cooperatives. To see more maps, go to [here](scripts/1_map.md)](results/img/fedecoop_map.png)
+To see more maps, go to [here](scripts/1_map.md)
+
+![(results/img/fedecoop_map.pdf)
+
+### Distance between cooperatives
 
 --------- 
 
