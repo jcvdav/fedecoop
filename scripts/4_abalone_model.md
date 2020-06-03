@@ -94,10 +94,12 @@ where they end up in
 The transition matrix needs three pieces of information. Growth,
 survival, and harvest.
 
-    ## [1] 30.17576
-
-![](4_abalone_model_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->
-
 ![](4_abalone_model_files/figure-gfm/unnamed-chunk-15-1.png)<!-- -->
 
+    ## [1] 30.89165
+
 ![](4_abalone_model_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
+
+![](4_abalone_model_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
+
+![](4_abalone_model_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->

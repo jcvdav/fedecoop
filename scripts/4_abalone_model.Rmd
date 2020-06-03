@@ -239,70 +239,100 @@ M
 
 
 ```{r}
-for(i in 2:n_steps) {
-  # Eggs
-  ## Egg production
-  e <- rnorm(1, mean = e_mean, sd = e_sd)
-  E <- eggs(e = e,
-            w_i = w_i,
-            psi_i = psi_i,
-            N_izt = N[, , i-1])
-  ## Egg survival into settlers
-  sigma_e <- rnorm(1, mean = sigma_e_m, sd = sigma_e_sd)
-  S <- settlers(sigma = sigma_e,
-                E = E,
-                rho_mat = rho_mat)
+
+n_t_i <- matrix(numeric(length = n_steps * 1000), nrow = n_steps)
+
+for (j in 1:1000){
+  for(i in 2:n_steps) {
+    # Eggs
+    ## Egg production
+    e <- rnorm(1, mean = e_mean, sd = e_sd)
+    E <- eggs(e = e,
+              w_i = w_i,
+              psi_i = psi_i,
+              N_izt = N[, , i-1])
+    ## Egg survival into settlers
+    sigma_e <- rnorm(1, mean = sigma_e_m, sd = sigma_e_sd)
+    S <- settlers(sigma = sigma_e,
+                  E = E,
+                  rho_mat = rho_mat)
+    
+    ## Adult survival
+    s_i <- survival(theta_m, theta_sd, alpha_m, alpha_sd)
+    M <- s_i * G 
+    
+    ss <- sigma_s(sigma_o = sigma_o,
+                  S = S,
+                  K = K)
+    R <- ss * S
+    
+    N_after_harvest <- (1 - h_iz) * N[, , i-1]
+    N_now <- M %*% N_after_harvest
+    N_now[1, ] <- N_now[1, ] + R
+    
+    N[, , i] <- N_now
+  }
   
-  ## Adult survival
-  s_i <- survival(theta_m, theta_sd, alpha_m, alpha_sd)
-  M <- s_i * G 
-  
-  ss <- sigma_s(sigma_o = sigma_o,
-                S = S,
-                K = K)
-  R <- ss * S
-  
-  N_after_harvest <- (1 - h_iz) * N[, , i-1]
-  N_now <- M %*% N_after_harvest
-  N_now[1, ] <- N_now[1, ] + R
-  
-  N[, , i] <- N_now
+  n_t <- apply(N[-1,,], 3, sum, na.rm = T)
+  n_t_i[ , j] <- n_t
 }
-
-n_t <- apply(N[-1,,], 3, sum, na.rm = T)
-mean(n_t / 1e6)
-
-plot(n_t, type = "l")
-abline(h = 25e6)
-abline(h = mean(n_t), col = "blue")
-
 ```
 
 ```{r}
-plot(n_t, c(NA, diff(n_t)))
+n_t <- apply(n_t_i, 1, mean)
 
-log(n_t / lag(n_t)) %>% mean(na.rm = T)
+matplot(n_t_i, type = "l", lwd = 0.1, pch = ".")
+lines(n_t, type = "l", col = "black")
+abline(h = mean(n_t[-c(1:50)]), col = "blue")
 
-# lm(log(n_t / lag(n_t)) ~ n_t) %>%
-  # summary()
+mean(n_t[-c(1:50)]) / 1e6
 ```
 
-
 ```{r}
-apply(N[-1, , ], 1, function(x){apply(x, 2, sum)}) %>% 
-  magrittr::set_colnames(size_class[-1]) %>% 
+nti_df <- n_t_i %>% 
+  magrittr::set_colnames(value = paste("try", 1:1000, sep = "_")) %>% 
   as_tibble() %>% 
   mutate(t = 1:n_steps) %>% 
-  gather(class, n, -t) %>% 
-  mutate(class = fct_relevel(class, size_class)) %>% 
-  ggplot(aes(x = t, y = n, color = class)) +
-  geom_line(size = 1) +
-  ggtheme_plot() +
-  scale_color_brewer(palette = "Set1")
+  gather(try, n, -t) %>% 
+  mutate(n = n / 1e6)
+
+ggplot(data = nti_df, aes(x = t, y = n)) +
+  stat_summary(geom = "ribbon", fun.data = mean_sdl, fill = "transparent", color = "black", linetype = "dashed") +
+  geom_line(aes(group = try), alpha = 0.5, size = 0.01, color = "steelblue") +
+  stat_summary(geom = "line", fun = "mean") +
+  labs(title = "1000 model runs", x = "Time", y = "N_t (millions)") +
+  ggtheme_plot()
 ```
 
-```{r}
 
+
+```{r}
+plot(n_t, c(NA, diff(n_t)), main = "State-State plot", xlab = "N_t", ylab = "N_t+1")
+```
+
+
+```{r}
+get_r <- function(x) {
+  mean(log(x / lag(x)), na.rm = T)
+}
+
+rs <- apply(n_t_i, 2, get_r)
+
+plot(density(rs), "Density distribution of r")
+abline(v = mean(rs))
+text(x = mean(rs), y = 100, paste("Mean is ", round(mean(rs), 4)))
+
+
+r_dens <- group_by(nti_df, try) %>% 
+  summarize(r = get_r(n)) %>% 
+  ggplot(aes(x = r)) +
+  geom_density(fill = "steelblue") +
+  ggtheme_plot() +
+  geom_vline(aes(xintercept = mean(r)), linetype = "dashed") +
+  geom_text(aes(x = mean(r) + sd(r), y = 100, label = paste("Mean is ", round(mean(rs), 4)))) +
+  labs(title = "Density distribution of r", x = "r", y = "Density")
+
+lazy_ggsave(r_dens, filename = "r_dens", width = 10, height = 6)
 ```
 
 

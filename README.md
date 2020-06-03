@@ -48,7 +48,7 @@ To see more maps, go to [here](scripts/1_map.md).
 
 ### Fishery data
 
-An overview of landings data from all FEDECOOP cooperatives can be found [here](scripts\3_abalone_fishery). Their [website](https://www.fedecoop.com.mx/) states that aggregate landed green abalone (*H. fulgens*) meat is about 200 tones per year.
+An overview of landings data from all FEDECOOP cooperatives can be found [here](scripts/3_abalone_fishery.md). Their [website](https://www.fedecoop.com.mx/) states that aggregate landed green abalone (*H. fulgens*) meat is about 200 tones per year.
 
 The figure below shows aggregate landings of *H. fulgens* for nine cooperative sin FEDECOOP. The solid hosiontal line shows the long-term mean, dashed lines represent $\pm$ 1 SD.
 
@@ -56,7 +56,15 @@ The figure below shows aggregate landings of *H. fulgens* for nine cooperative s
 
 ### Biology of abalone
 
+A full description of an abalone model following Rossetto et al 2015 can be found [here](scripts/4_abalone_model.md).
 
+Recoding the model and running it 1000 times gives the following intrinsic growth rate.
+
+![](results/img/r_dens.png)
+
+### Relevant references
+
+= Rossetto, M., Micheli, F., Saenz-Arroyo, A., Montes, J. A. E., & De Leo, G. A. (2015). No-take marine reserves can enhance population persistence and support the fishery of abalone. Canadian Journal of Fisheries and Aquatic Sciences, 72(10), 1503-1517.
 
 --------- 
 
