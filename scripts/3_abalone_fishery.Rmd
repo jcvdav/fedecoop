@@ -52,18 +52,18 @@ coops_i_want <- c("Scpp bahia tortugas s.c de r.l", "Scpp bahia tortugas s.c de 
 
 # A list of the valid entries for abalone
 abalone_types_i_want <- c(
-  "Abulon amarillo s.c. fco.",
+  # "Abulon amarillo s.c. fco.",
   # "Abulon amarillo ent. fco.",
-  "Abulon chino s.c. fco.",
+  # "Abulon chino s.c. fco.",
   # "Abulon chino ent. fco.",
   # "Abulon rayado ent. fco.",
-  "Abulon rojo s.c. fco.",
+  # "Abulon rojo s.c. fco.",
   # "Abulon rojo ent. fco.",
   "Abulon azul s.c. fco.",
   # "Abulon azul ent. fco.",
-  "Abulon blanco s.c. fco.",
+  # "Abulon blanco s.c. fco.",
   # "Abulon blanco ent. fco.",
-  "Abulon negro s.c. fco.",
+  # "Abulon negro s.c. fco.",
   # "Abulon negro ent. fco.",
   "Abulon s.c. fco.",
   "Abulon ent. fco."
@@ -143,7 +143,7 @@ abalone_fishery %>%
   stat_summary(geom = "line", fun = sum) +
   scale_color_brewer(name = "Cooperative", palette = "Set1") +
   ggtheme_plot() +
-  ggtitle("Total annual landings and revenue for each cooperative") +
+  ggtitle("Total annual landings for each cooperative") +
   labs(x = "Year", y = "Landings (Tones)")
 ```
 
