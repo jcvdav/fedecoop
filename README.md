@@ -34,9 +34,9 @@
 
 ## Requested things
 
-### Map of the Cooeratives
+### Map of the Cooperatives
 
-![]("results/img/fedecoop_map.png")
+![Map of cooperatives. To see more maps, go to [here](scripts/1_map.md)](results/img/fedecoop_map.png)
 
 --------- 
 
