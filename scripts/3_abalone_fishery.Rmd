@@ -149,7 +149,7 @@ abalone_fishery %>%
 
 
 ```{r}
-abalone_fishery %>% 
+ts <- abalone_fishery %>% 
   group_by(year) %>% 
   summarize(landed_weight = sum(landed_weight, na.rm = T)) %>% 
   ggplot(aes(x = year, y = landed_weight)) +
@@ -161,6 +161,13 @@ abalone_fishery %>%
   ggtitle("Total landings by all FEDECOOP coperatives") +
   labs(x = "Year", y = "Landings (Tones)") +
   ggtheme_plot()
+
+ts
+
+lazy_ggsave(plot = ts,
+            filename = "landings_timeseries",
+            width = 10,
+            height = 5)
 ```
 
 ## Mean measures

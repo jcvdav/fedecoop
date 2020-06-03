@@ -34,15 +34,29 @@
 
 ## Requested things
 
-All the results can be found in the [results](results) folder
+All the results, including pdf versions of the figures, can be found in the [results](results) folder.
 
 ### Map of the Cooperatives
 
-To see more maps, go to [here](scripts/1_map.md)
+To see more maps, go to [here](scripts/1_map.md).
 
 ![](results/img/fedecoop_map.png)
 
 ### Distance between cooperatives
+
+![](results/img/distance_heatmap.png)
+
+### Fishery data
+
+An overview of landings data from all FEDECOOP cooperatives can be found [here](scripts\3_abalone_fishery). Their [website](https://www.fedecoop.com.mx/) states that aggregate landed green abalone (*H. fulgens*) meat is about 200 tones per year.
+
+The figure below shows aggregate landings of *H. fulgens* for nine cooperative sin FEDECOOP. The solid hosiontal line shows the long-term mean, dashed lines represent $\pm$ 1 SD.
+
+![](results/img/landings_timeseries.png)
+
+### Biology of abalone
+
+
 
 --------- 
 
