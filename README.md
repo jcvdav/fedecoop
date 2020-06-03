@@ -38,7 +38,7 @@
 
 To see more maps, go to [here](scripts/1_map.md)
 
-![(results/img/fedecoop_map.pdf)
+![](results/img/fedecoop_map.pdf)
 
 ### Distance between cooperatives
 
