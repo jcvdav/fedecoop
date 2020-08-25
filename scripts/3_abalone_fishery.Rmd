@@ -93,7 +93,8 @@ abalone_fishery <- conapesca %>%
   select(unidad_economica,
          mes,
          year = ano,
-         landed_weight = peso) %>% 
+         landed_weight = peso,
+         value = valor) %>% 
   mutate(unidad_economica = tolower(unidad_economica),
          unidad_economica = str_remove_all(unidad_economica, "scpp "),
          unidad_economica = str_remove_all(unidad_economica, "coop de prod pesq rib"),
@@ -107,16 +108,17 @@ abalone_fishery <- conapesca %>%
          unidad_economica = str_trim(unidad_economica),
          unidad_economica = str_squish(unidad_economica)) %>% 
   left_join(coop_dictionary, by = "unidad_economica") %>% 
-  select(coop, year, landed_weight) %>% 
+  select(coop, year, landed_weight, value) %>% 
   group_by(year, coop) %>% 
-  summarize(landed_weight = sum(landed_weight, na.rm = T) / 1000) %>% 
+  summarize(landed_weight = sum(landed_weight, na.rm = T) / 1000,
+            value = sum(value, na.rm = T) / 1000) %>% 
   ungroup() %>% 
   arrange(year, coop)
 ```
 
 ```{r}
 head(abalone_fishery, 24) %>% 
-  knitr::kable(caption = "Landings (kg), revenue (MXP), and prices (MXP / Kg) for the abalone fishery in 9 cooperatives belonging to FEDECOOP.")
+  knitr::kable(caption = "Landings (Tones) and revenue (Thousands MXP) for the abalone fishery in 9 cooperatives belonging to FEDECOOP.")
 ```
 
 # Tables and Figures
@@ -251,8 +253,10 @@ gsd <- sd(grand_mean)
 
 Based on the 2000 - 2014 data, a cooperative's mean catch is `r mean(abalone_fishery$landed_weight)` $\pm$ `r sd(abalone_fishery$landed_weight)` tones (mean $\pm$ SD). Total annual extraction to be `r gm` $\pm$ `r gsd` (mean $\pm$ SD). In FEDECOOPs website (https://www.fedecoop.com.mx/), they report that current total abalone extraction averages 290 metric tonnes for all cooperatives together. This value is closer to the more recent value in these data.
 
+```{r}
+write.csv(abalone_fishery, here::here("results", "abalone_fishery_panel.csv"))
+```
 
-However, this analyses des not accout for the temporal trend in which cooperatives have been forced to reduce fishing effort due to the diwndling status of stocks. I
 
 
 
